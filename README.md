@@ -95,23 +95,36 @@ The application is pre-configured for seamless zero-config deployment on **[Verc
 2. Click **Add New...** ➔ **Project**.
 3. Select the GitHub repository `harsuu942/Taskanalysis`.
 
-### Step 2: Configure PostgreSQL Database
-Since Vercel serverless functions have an ephemeral filesystem, connect any cloud PostgreSQL database:
-- **Neon.tech** (Free serverless Postgres)
-- **Supabase** (Free Postgres instance)
-- **Vercel Postgres** (Built-in Vercel storage)
+### Step 2: Configure Supabase Database & Storage
+In your [Supabase Dashboard](https://supabase.com/dashboard):
 
-Add the connection string to Vercel **Environment Variables**:
-```env
-DATABASE_URL="postgresql://username:password@host/neondb?sslmode=require"
-```
+1. **Database Connection (Session Pooler & Direct)**:
+   - Go to **Project Settings** ➔ **Database** ➔ **Connection string**.
+   - Copy the **Session pooler** (Transaction Mode, Port `6543`) connection string and add it to Vercel **Environment Variables**:
+     ```env
+     DATABASE_URL="postgresql://postgres.[project-ref]:[your-db-password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true"
+     ```
+   - (Optional) Copy the **Direct connection** (Port `5432`) as `DIRECT_URL`:
+     ```env
+     DIRECT_URL="postgresql://postgres:[your-db-password]@db.[project-ref].supabase.co:5432/postgres"
+     ```
+
+2. **Storage Credentials (CDN Attachments & Deliverables)**:
+   - Go to **Project Settings** ➔ **API**.
+   - Add your Supabase URL and API keys to Vercel **Environment Variables**:
+     ```env
+     NEXT_PUBLIC_SUPABASE_URL="https://[project-ref].supabase.co"
+     NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     ```
+   - Storage uploads in the Scope of Work modal will automatically create and use the `project-attachments` public bucket!
 
 ### Step 3: Deploy
 - The build command will automatically run:
   ```bash
   npm run vercel-build
   ```
-- `scripts/prepare-env.mjs` will auto-detect the PostgreSQL connection, adjust the Prisma provider to `postgresql`, generate the Prisma client, and compile Next.js.
+- `scripts/prepare-env.mjs` will auto-detect the Supabase connection, automatically switch the Prisma provider to `postgresql`, generate the Prisma client, and compile Next.js.
 - Your studio will be live with a production HTTPS URL!
 
 ---

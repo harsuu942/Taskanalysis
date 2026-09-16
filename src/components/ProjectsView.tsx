@@ -79,6 +79,7 @@ export default function ProjectsView({
   const [attUrl, setAttUrl] = useState("");
   const [attType, setAttType] = useState<"figma" | "github" | "pdf" | "doc" | "image" | "link">("figma");
   const [savingAtt, setSavingAtt] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // Discussions Drawer State
   const [discussionDrawerProject, setDiscussionDrawerProject] = useState<Project | null>(null);
@@ -285,8 +286,8 @@ export default function ProjectsView({
     }
   };
 
-  // Handle Local File Selection for Attachment
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Local File Selection for Attachment (Uploads to Supabase Storage)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -303,23 +304,44 @@ export default function ProjectsView({
       setAttType("link");
     }
 
-    // Convert to local data URL
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAttUrl(reader.result);
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (sowModalProject?.id) {
+        formData.append("projectId", sowModalProject.id);
       }
-    };
-    reader.readAsDataURL(file);
+
+      const res = await fetch("/api/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload file to storage.");
+      }
+
+      setAttUrl(data.url);
+    } catch (err: any) {
+      alert(err.message || "File upload failed.");
+    } finally {
+      setUploadingFile(false);
+      e.target.value = "";
+    }
   };
 
   // Delete Attachment
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!confirm("Delete this attachment?")) return;
+    if (!sowModalProject) return;
     try {
-      const res = await fetch(`/api/projects/attachments?attachmentId=${attachmentId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/projects/${sowModalProject.id}/attachments?attachmentId=${attachmentId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (res.ok) {
         setSowAttachments(sowAttachments.filter((a) => a.id !== attachmentId));
         onRefresh();
@@ -787,16 +809,27 @@ export default function ProjectsView({
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <label className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer">
-                      <Upload className="w-3 h-3" />
-                      <span>Upload local file</span>
-                      <input type="file" onChange={handleFileUpload} className="hidden" />
+                    <label
+                      className={`text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
+                        uploadingFile
+                          ? "text-indigo-400 pointer-events-none opacity-70"
+                          : "text-indigo-600 hover:text-indigo-800"
+                      }`}
+                    >
+                      <Upload className={`w-3 h-3 ${uploadingFile ? "animate-pulse" : ""}`} />
+                      <span>{uploadingFile ? "Uploading to Supabase Storage..." : "Upload file (Supabase)"}</span>
+                      <input
+                        type="file"
+                        onChange={handleFileUpload}
+                        disabled={uploadingFile}
+                        className="hidden"
+                      />
                     </label>
 
                     <button
                       type="submit"
-                      disabled={savingAtt}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1"
+                      disabled={savingAtt || uploadingFile}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1"
                     >
                       <Plus className="w-3 h-3" />
                       <span>{savingAtt ? "Adding..." : "Add Attachment"}</span>
