@@ -13,6 +13,7 @@
     "prisma:push": "prisma db push",
     "seed": "node scripts/seed_personal.mjs",
     "db:use-postgres": "cp prisma/schema.postgresql.prisma prisma/schema.prisma && prisma generate",
+    "db:push:postgres": "cp prisma/schema.postgresql.prisma prisma/schema.prisma && prisma db push && prisma generate",
     "db:use-sqlite": "cp prisma/schema.sqlite.prisma prisma/schema.prisma && prisma generate",
     "clean-data": "node scripts/clean_data.mjs"
   },
