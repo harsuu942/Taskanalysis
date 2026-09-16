@@ -1,0 +1,289 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  userId       String?      @unique
+  name         String
+  email        String       @unique
+  password     String       @default("password123")
+  role         String       @default("EMPLOYEE") // "ADMIN" | "EMPLOYEE"
+  designation  String?      @default("Team Member")
+  avatar       String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  assignedTasks Task[]       @relation("AssignedTasks")
+  createdTasks  Task[]       @relation("CreatedTasks")
+  timeLogs      TimeLog[]
+  attendances   Attendance[]
+  dailyReports  DailyReport[]
+  leaveRequests  LeaveRequest[] @relation("UserLeaves")
+  reviewedLeaves LeaveRequest[] @relation("ReviewedLeaves")
+  taskAssignments TaskAssignee[]
+}
+
+model Task {
+  id                   String     @id @default(cuid())
+  title                String
+  description          String?
+  recurrence           String     @default("ONE_TIME") // ONE_TIME | DAILY | WEEKLY | MONTHLY | QUARTERLY | HALF_YEARLY | YEARLY
+  monthlyDay           Int?       // 1 - 31 (day of month for monthly & quarterly tasks)
+  weeklyDay            String?    // Monday, Tuesday, Wednesday, etc. for weekly tasks
+  startDate            DateTime?
+  dueDate              DateTime?
+  priority             String     @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  
+  // Two-Tier Status Architecture
+  employeeStatus       String     @default("TODO") // TODO | IN_PROGRESS | ON_HOLD | COMPLETED
+  adminStatus          String     @default("NOT_SUBMITTED") // NOT_SUBMITTED | PENDING_REVIEW | FINAL_COMPLETED | REVISION_REQUESTED
+  
+  // Timer & Duration Tracking
+  totalDurationSeconds Int        @default(0)
+  isTimerRunning       Boolean    @default(false)
+  currentTimerStartedAt DateTime?
+  billableHours        Float?     @default(0)
+
+  // Recurring Template metadata
+  isRecurringTemplate  Boolean    @default(false)
+  parentRecurringId    String?
+  lastGeneratedDate    DateTime?
+
+  assignedToId         String?
+  assignedTo           User?          @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignees            TaskAssignee[]
+  
+  clientId             String?
+  client               Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  taskClients          TaskClient[]
+
+  projectId            String?
+  project              Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdById          String
+  createdBy            User       @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+
+  timeLogs             TimeLog[]
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks       Task[]
+  taskClients TaskClient[]
+  projects    Project[]
+}
+
+model TimeLog {
+  id              String    @id @default(cuid())
+  taskId          String
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime       DateTime  @default(now())
+  endTime         DateTime?
+  durationSeconds Int       @default(0)
+  isRunning       Boolean   @default(false)
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Attendance {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                  String    // YYYY-MM-DD
+  checkInTime           DateTime?
+  checkOutTime          DateTime?
+  workDurationSeconds   Int       @default(0)
+  breakDurationSeconds  Int       @default(0)
+  isOnBreak                   Boolean   @default(false)
+  currentBreakStartedAt       DateTime?
+  lastCheckInTime             DateTime?
+  sessionBreakDurationSeconds Int       @default(0)
+  status                      String    @default("PRESENT") // PRESENT | ON_BREAK | CHECKED_OUT | ABSENT_LEAVE
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, date])
+}
+
+model DailyReport {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                  String    // YYYY-MM-DD
+  totalTasksWorked      Int       @default(0)
+  completedTasks        Int       @default(0)
+  pendingTasks          Int       @default(0)
+  totalTimeSpentSeconds Int       @default(0)
+  attendanceStatus      String    @default("PRESENT")
+  checkInTime           DateTime?
+  checkOutTime          DateTime?
+  reportSummaryHtml     String
+  sentToAdminEmail      String?
+  emailSentAt           DateTime?
+  emailStatus           String    @default("PENDING") // PENDING | SENT | FAILED | PREVIEW_ONLY
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, date])
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("UserLeaves", fields: [userId], references: [id], onDelete: Cascade)
+  leaveType    String    // CASUAL | SICK | EARNED | UNPAID | HALF_DAY
+  startDate    String    // YYYY-MM-DD
+  endDate      String    // YYYY-MM-DD
+  daysCount    Int       @default(1)
+  reason       String
+  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewedById String?
+  reviewedBy   User?     @relation("ReviewedLeaves", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewNotes  String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model TaskAssignee {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+}
+
+model TaskClient {
+  id       String @id @default(cuid())
+  taskId   String
+  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, clientId])
+}
+
+model Project {
+  id                 String              @id @default(cuid())
+  title              String
+  clientId           String
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status             String              @default("ONBOARD") // ONBOARD | ONGOING | HOLD | COMPLETED
+  scopeOfWork        String?
+  initialEstimation  String?
+  approvedAmount     Float?
+  currency           String              @default("$")
+  approvedTimeframe  String?
+  startDate          DateTime?
+  targetDeliveryDate DateTime?
+  isApproved         Boolean             @default(false)
+  approvedAt         DateTime?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  discussions        ProjectDiscussion[]
+  attachments        ProjectAttachment[]
+  tasks              Task[]
+}
+
+model ProjectAttachment {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  fileType  String   @default("link") // figma | github | pdf | doc | image | link
+  fileSize  String?
+  createdAt DateTime @default(now())
+}
+
+model ProjectDiscussion {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
+  meetingDate     DateTime @default(now())
+  discussionNotes String
+  clientFeedback  String?
+  actionItems     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ProductIdea {
+  id               String                  @id @default(cuid())
+  title            String
+  tagline          String?
+  category         String                  @default("SaaS")
+  problemStatement String?
+  targetAudience   String?
+  valueProposition String?
+  status           String                  @default("BRAINSTORMING") // BRAINSTORMING | VALIDATING | PLANNING | IN_EXECUTION | LAUNCHED | ON_HOLD
+  priority         String                  @default("MEDIUM") // LOW | MEDIUM | HIGH
+  targetLaunchDate DateTime?
+  estimatedBudget  Float?
+  notes            String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  phases           ProductExecutionPhase[]
+}
+
+model ProductExecutionPhase {
+  id           String      @id @default(cuid())
+  ideaId       String
+  idea         ProductIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  order        Int         @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  status       String      @default("PLANNED") // PLANNED | IN_PROGRESS | COMPLETED
+  deliverables String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model LearningItem {
+  id           String   @id @default(cuid())
+  title        String
+  subject      String   @default("AI") // AI | Flutter | Backend | Frontend | System Design | DevOps | etc.
+  url          String?
+  resourceType String   @default("ARTICLE") // ARTICLE | VIDEO | REPO | COURSE | DOCS | BOOK
+  status       String   @default("TO_LEARN") // TO_LEARN | IN_PROGRESS | COMPLETED | BOOKMARKED
+  notes        String?
+  isFavorite   Boolean  @default(false)
+  tags         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
