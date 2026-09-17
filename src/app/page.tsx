@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { User, Task, Client, Project, ProductIdea, LearningItem } from "@/types";
+import { computeDailyProductivity } from "@/lib/productivity";
 import Navbar from "@/components/Navbar";
 import LoginView from "@/components/LoginView";
 import TaskListView from "@/components/TaskListView";
@@ -260,6 +261,34 @@ export default function Home() {
     }
   };
 
+  // Delete Product Idea (Instant Optimistic UI Deletion <50ms)
+  const handleDeleteIdea = async (ideaId: string) => {
+    setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, { method: "DELETE" });
+      if (!res.ok) {
+        await fetchIdeas();
+      }
+    } catch (err) {
+      console.error("Delete idea error:", err);
+      await fetchIdeas();
+    }
+  };
+
+  // Delete Learning Resource (Instant Optimistic UI Deletion <50ms)
+  const handleDeleteLearningItem = async (itemId: string) => {
+    setLearningItems((prev) => prev.filter((i) => i.id !== itemId));
+    try {
+      const res = await fetch(`/api/learning/${itemId}`, { method: "DELETE" });
+      if (!res.ok) {
+        await fetchLearning();
+      }
+    } catch (err) {
+      console.error("Delete learning item error:", err);
+      await fetchLearning();
+    }
+  };
+
   // Derived KPI Metrics
   const activeRunningTask = tasks.find((t) => t.isTimerRunning);
   const pendingTasksCount = tasks.filter(
@@ -271,6 +300,17 @@ export default function Home() {
     .reduce((acc, p) => acc + (p.approvedAmount || 0), 0);
 
   const learningMasteredCount = learningItems.filter((i) => i.status === "COMPLETED").length;
+
+  // Daily Productivity computation (Today vs Yesterday)
+  const todayProductivity = useMemo(() => {
+    return computeDailyProductivity(tasks, new Date());
+  }, [tasks]);
+
+  const yesterdayProductivity = useMemo(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return computeDailyProductivity(tasks, yesterday);
+  }, [tasks]);
 
   if (authChecking) {
     return (
@@ -301,7 +341,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col w-full">
-      {/* Top Navbar without Check-in */}
+      {/* Top Navbar with animated productivity & active metrics */}
       <Navbar
         currentUser={currentUser}
         activeTab={activeTab}
@@ -317,6 +357,8 @@ export default function Home() {
         pipelineValue={totalPipelineRevenue}
         pendingTasksCount={pendingTasksCount}
         learningMasteredCount={learningMasteredCount}
+        todayProductivity={todayProductivity}
+        yesterdayProductivity={yesterdayProductivity}
         onLogout={handleLogout}
       />
 
@@ -391,6 +433,7 @@ export default function Home() {
           <ProductIdeasView
             ideas={ideas}
             onRefresh={() => fetchIdeas()}
+            onDeleteIdea={handleDeleteIdea}
           />
         )}
 
@@ -399,6 +442,7 @@ export default function Home() {
           <LearningHubView
             items={learningItems}
             onRefresh={() => fetchLearning()}
+            onDeleteItem={handleDeleteLearningItem}
           />
         )}
       </main>

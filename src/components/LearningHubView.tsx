@@ -30,11 +30,13 @@ import {
 interface LearningHubViewProps {
   items: LearningItem[];
   onRefresh: () => void;
+  onDeleteItem?: (id: string) => Promise<void> | void;
 }
 
 export default function LearningHubView({
   items,
   onRefresh,
+  onDeleteItem,
 }: LearningHubViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("ALL");
@@ -183,11 +185,15 @@ export default function LearningHubView({
 
   const handleDeleteItem = async (id: string) => {
     if (!confirm("Are you sure you want to delete this resource?")) return;
-    try {
-      const res = await fetch(`/api/learning/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (e) {
-      console.error(e);
+    if (onDeleteItem) {
+      onDeleteItem(id);
+    } else {
+      try {
+        const res = await fetch(`/api/learning/${id}`, { method: "DELETE" });
+        if (res.ok) onRefresh();
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 

@@ -24,8 +24,12 @@ import {
   Plus,
   Kanban,
   LayoutList,
+  CalendarDays,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import { formatDuration } from "@/lib/formatters";
+import { TaskDateFilterOption, matchesTaskDateFilter } from "@/lib/productivity";
 
 interface TaskListViewProps {
   tasks: Task[];
@@ -60,6 +64,8 @@ export default function TaskListView({
   const [filterPriority, setFilterPriority] = useState("ALL");
   const [filterRecurrence, setFilterRecurrence] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [filterDate, setFilterDate] = useState<TaskDateFilterOption>("ALL");
+  const [customDate, setCustomDate] = useState<string>("");
 
   const isTaskOverdue = (task: Task) => {
     if (!task.dueDate) return false;
@@ -74,7 +80,8 @@ export default function TaskListView({
     filterClient !== "ALL" ||
     filterPriority !== "ALL" ||
     filterRecurrence !== "ALL" ||
-    filterStatus !== "ALL";
+    filterStatus !== "ALL" ||
+    filterDate !== "ALL";
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -82,6 +89,8 @@ export default function TaskListView({
     setFilterPriority("ALL");
     setFilterRecurrence("ALL");
     setFilterStatus("ALL");
+    setFilterDate("ALL");
+    setCustomDate("");
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -108,8 +117,27 @@ export default function TaskListView({
       if (filterStatus === "ON_HOLD" && t.employeeStatus !== "ON_HOLD") return false;
       if (filterStatus === "TODO" && t.employeeStatus !== "TODO") return false;
     }
+
+    if (!matchesTaskDateFilter(t, filterDate, customDate)) return false;
+
     return true;
   });
+
+  // Productivity metrics for the current filtered view / date selection
+  const totalFiltered = filteredTasks.length;
+  const completedFiltered = filteredTasks.filter(
+    (t) => t.employeeStatus === "COMPLETED" || t.adminStatus === "FINAL_COMPLETED"
+  ).length;
+  const inProgressFiltered = filteredTasks.filter(
+    (t) => t.employeeStatus === "IN_PROGRESS"
+  ).length;
+  const onHoldFiltered = filteredTasks.filter((t) => t.employeeStatus === "ON_HOLD").length;
+  const todoFiltered = filteredTasks.filter((t) => t.employeeStatus === "TODO").length;
+  const completionRate = totalFiltered > 0 ? Math.round((completedFiltered / totalFiltered) * 100) : 0;
+  const totalDurationSeconds = filteredTasks.reduce(
+    (acc, t) => acc + (t.totalDurationSeconds || 0),
+    0
+  );
 
   const getRowStyle = (task: Task) => {
     if (task.adminStatus === "FINAL_COMPLETED" || task.employeeStatus === "COMPLETED") {
@@ -126,6 +154,23 @@ export default function TaskListView({
       case "TODO":
       default:
         return "bg-white hover:bg-slate-50 text-slate-900 font-medium";
+    }
+  };
+
+  const getDateFilterLabel = () => {
+    switch (filterDate) {
+      case "TODAY":
+        return "Today's Tasks & Productivity";
+      case "YESTERDAY":
+        return "Yesterday's Performance";
+      case "THIS_WEEK":
+        return "This Week's Overview";
+      case "THIS_MONTH":
+        return "This Month's Overview";
+      case "CUSTOM":
+        return customDate ? `Date: ${customDate}` : "Custom Date Range";
+      default:
+        return "Overall Workspace Productivity";
     }
   };
 
@@ -155,6 +200,33 @@ export default function TaskListView({
 
         {/* Filter Dropdowns */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Date Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-white border border-indigo-200 rounded-xl px-2 py-1 shadow-2xs">
+            <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+            <select
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value as TaskDateFilterOption)}
+              className="text-xs bg-transparent text-indigo-950 font-bold focus:outline-none cursor-pointer py-1"
+            >
+              <option value="ALL">📅 All Dates</option>
+              <option value="TODAY">⚡ Today</option>
+              <option value="YESTERDAY">⏳ Yesterday</option>
+              <option value="THIS_WEEK">📆 This Week</option>
+              <option value="THIS_MONTH">🗓️ This Month</option>
+              <option value="CUSTOM">🎯 Custom Date...</option>
+            </select>
+          </div>
+
+          {/* Custom Date Picker (when Custom is selected) */}
+          {filterDate === "CUSTOM" && (
+            <input
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="text-xs bg-white border border-indigo-300 rounded-xl px-2.5 py-1.5 text-indigo-950 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          )}
+
           <select
             value={filterClient}
             onChange={(e) => setFilterClient(e.target.value)}
@@ -239,6 +311,114 @@ export default function TaskListView({
               <span>Add Task</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Date Productivity Ribbon */}
+      <div className="mx-4 p-3.5 rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-blue-50/50 to-slate-50 flex flex-wrap items-center justify-between gap-4">
+        {/* Left: Indicator & Quick Pills */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span>{getDateFilterLabel()}</span>
+                {filterDate === "TODAY" && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                    Live Today
+                  </span>
+                )}
+                {filterDate === "YESTERDAY" && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                    Yesterday
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium">
+                {totalFiltered === 0 ? "No tasks matching current filter" : `${completedFiltered} of ${totalFiltered} tasks completed`}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Date Shortcuts */}
+          <div className="flex items-center gap-1 bg-white/80 p-1 rounded-lg border border-slate-200 text-[11px]">
+            <button
+              onClick={() => setFilterDate("ALL")}
+              className={`px-2 py-0.5 rounded font-bold transition ${
+                filterDate === "ALL" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilterDate("TODAY")}
+              className={`px-2 py-0.5 rounded font-bold transition flex items-center gap-1 ${
+                filterDate === "TODAY" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Today</span>
+              {filterDate === "TODAY" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
+            </button>
+            <button
+              onClick={() => setFilterDate("YESTERDAY")}
+              className={`px-2 py-0.5 rounded font-bold transition ${
+                filterDate === "YESTERDAY" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Yesterday
+            </button>
+            <button
+              onClick={() => setFilterDate("THIS_WEEK")}
+              className={`px-2 py-0.5 rounded font-bold transition ${
+                filterDate === "THIS_WEEK" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              This Week
+            </button>
+          </div>
+        </div>
+
+        {/* Right: Productivity KPI Cards & Progress Bar */}
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Progress Bar & Rate */}
+          <div className="flex items-center gap-2.5 min-w-[150px]">
+            <div className="flex-1 bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  completionRate >= 80
+                    ? "bg-emerald-500"
+                    : completionRate >= 50
+                    ? "bg-blue-500"
+                    : completionRate > 0
+                    ? "bg-amber-500"
+                    : "bg-slate-300"
+                }`}
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-black text-slate-900">{completionRate}%</span>
+              <span className="text-[10px] text-slate-400 block -mt-1">Rate</span>
+            </div>
+          </div>
+
+          {/* Metric Chips */}
+          <div className="flex items-center gap-1.5 text-xs font-semibold">
+            <div className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-700 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{completedFiltered} Done</span>
+            </div>
+            <div className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-700 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-blue-600" />
+              <span>{inProgressFiltered} In Progress</span>
+            </div>
+            <div className="px-2.5 py-1 bg-indigo-100/80 rounded-lg border border-indigo-200 text-indigo-900 flex items-center gap-1 font-bold">
+              <TrendingUp className="w-3.5 h-3.5 text-indigo-700" />
+              <span>{formatDuration(totalDurationSeconds)} Logged</span>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -72,7 +72,11 @@ export async function POST(request: Request) {
     const {
       title,
       clientId,
-      status = "ONBOARD",
+      clientName,
+      clientCompany,
+      clientEmail,
+      clientPhone,
+      status = "INQUIRY",
       scopeOfWork,
       initialEstimation,
       approvedAmount,
@@ -80,6 +84,8 @@ export async function POST(request: Request) {
       approvedTimeframe,
       startDate,
       targetDeliveryDate,
+      followUpDate,
+      followUpNote,
       isApproved = false,
       notes,
       attachments = [],
@@ -89,14 +95,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Project title is required." }, { status: 400 });
     }
 
-    if (!clientId) {
+    let finalClientId = clientId;
+    if (!finalClientId && clientName && clientName.trim()) {
+      let client = await prisma.client.findFirst({
+        where: { name: clientName.trim() },
+      });
+      if (!client) {
+        client = await prisma.client.create({
+          data: {
+            name: clientName.trim(),
+            company: clientCompany?.trim() || null,
+            email: clientEmail?.trim() || null,
+            phone: clientPhone?.trim() || null,
+            status: status === "INQUIRY" ? "PROSPECT" : "ACTIVE",
+          },
+        });
+      }
+      finalClientId = client.id;
+    }
+
+    if (!finalClientId) {
       return NextResponse.json({ error: "Client is required for project." }, { status: 400 });
+    }
+
+    // Auto-promote client to ACTIVE if project is onboarding or ongoing
+    if (["ONBOARD", "ONGOING", "COMPLETED"].includes(status)) {
+      await prisma.client.update({
+        where: { id: finalClientId },
+        data: { status: "ACTIVE" },
+      }).catch(() => {});
     }
 
     const project = await prisma.project.create({
       data: {
         title: title.trim(),
-        clientId,
+        clientId: finalClientId,
         status,
         scopeOfWork: scopeOfWork?.trim() || null,
         initialEstimation: initialEstimation?.trim() || null,
@@ -108,6 +141,8 @@ export async function POST(request: Request) {
         approvedTimeframe: approvedTimeframe?.trim() || null,
         startDate: startDate ? new Date(startDate) : null,
         targetDeliveryDate: targetDeliveryDate ? new Date(targetDeliveryDate) : null,
+        followUpDate: followUpDate ? new Date(followUpDate) : null,
+        followUpNote: followUpNote?.trim() || null,
         isApproved: Boolean(isApproved),
         approvedAt: isApproved ? new Date() : null,
         notes: notes?.trim() || null,
@@ -152,6 +187,8 @@ export async function PUT(request: Request) {
       approvedTimeframe,
       startDate,
       targetDeliveryDate,
+      followUpDate,
+      followUpNote,
       isApproved,
       notes,
     } = body;
@@ -175,6 +212,10 @@ export async function PUT(request: Request) {
     if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null;
     if (targetDeliveryDate !== undefined)
       data.targetDeliveryDate = targetDeliveryDate ? new Date(targetDeliveryDate) : null;
+    if (followUpDate !== undefined)
+      data.followUpDate = followUpDate ? new Date(followUpDate) : null;
+    if (followUpNote !== undefined)
+      data.followUpNote = followUpNote?.trim() || null;
     if (isApproved !== undefined) {
       data.isApproved = Boolean(isApproved);
       if (isApproved) {
@@ -182,6 +223,21 @@ export async function PUT(request: Request) {
       }
     }
     if (notes !== undefined) data.notes = notes?.trim() || null;
+
+    // If status moves to ONBOARD, ONGOING, or COMPLETED, promote client to ACTIVE
+    if (status && ["ONBOARD", "ONGOING", "COMPLETED"].includes(status)) {
+      const existing = await prisma.project.findUnique({
+        where: { id },
+        select: { clientId: true },
+      });
+      const targetClientId = clientId || existing?.clientId;
+      if (targetClientId) {
+        await prisma.client.update({
+          where: { id: targetClientId },
+          data: { status: "ACTIVE" },
+        }).catch(() => {});
+      }
+    }
 
     const project = await prisma.project.update({
       where: { id },

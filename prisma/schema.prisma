@@ -82,6 +82,7 @@ model Client {
   email     String?
   phone     String?
   notes     String?
+  status    String   @default("ACTIVE") // ACTIVE | PROSPECT | INACTIVE
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -198,7 +199,7 @@ model Project {
   title              String
   clientId           String
   client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  status             String              @default("ONBOARD") // ONBOARD | ONGOING | HOLD | COMPLETED
+  status             String              @default("INQUIRY") // INQUIRY | ONBOARD | ONGOING | HOLD | COMPLETED
   scopeOfWork        String?
   initialEstimation  String?
   approvedAmount     Float?
@@ -206,6 +207,8 @@ model Project {
   approvedTimeframe  String?
   startDate          DateTime?
   targetDeliveryDate DateTime?
+  followUpDate       DateTime?
+  followUpNote       String?
   isApproved         Boolean             @default(false)
   approvedAt         DateTime?
   notes              String?

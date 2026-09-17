@@ -34,11 +34,13 @@ import {
 interface ProductIdeasViewProps {
   ideas: ProductIdea[];
   onRefresh: () => void;
+  onDeleteIdea?: (id: string) => Promise<void> | void;
 }
 
 export default function ProductIdeasView({
   ideas,
   onRefresh,
+  onDeleteIdea,
 }: ProductIdeasViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -230,11 +232,15 @@ export default function ProductIdeasView({
     if (!confirm("Are you sure you want to delete this product idea and its roadmap?")) {
       return;
     }
-    try {
-      const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" });
-      if (res.ok) onRefresh();
-    } catch (e) {
-      console.error(e);
+    if (onDeleteIdea) {
+      onDeleteIdea(id);
+    } else {
+      try {
+        const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" });
+        if (res.ok) onRefresh();
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 

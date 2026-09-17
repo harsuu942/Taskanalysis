@@ -37,12 +37,22 @@ export default function ClientsView({
 
   // Form State
   const [name, setName] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "ALL" | "PROSPECT">("ACTIVE");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState<"ACTIVE" | "PROSPECT" | "INACTIVE">("ACTIVE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isClientActive = (c: Client) => {
+    if (c.status === "PROSPECT" || c.status === "INACTIVE") return false;
+    return true;
+  };
+
+  const activeClientsCount = clients.filter(isClientActive).length;
+  const prospectsCount = clients.filter((c) => c.status === "PROSPECT").length;
 
   const handleOpenAddModal = () => {
     setEditingClient(null);
@@ -51,6 +61,7 @@ export default function ClientsView({
     setEmail("");
     setPhone("");
     setNotes("");
+    setStatus("ACTIVE");
     setError(null);
     setIsModalOpen(true);
   };
@@ -62,11 +73,14 @@ export default function ClientsView({
     setEmail(client.email || "");
     setPhone(client.phone || "");
     setNotes(client.notes || "");
+    setStatus(client.status || "ACTIVE");
     setError(null);
     setIsModalOpen(true);
   };
 
   const filteredClients = clients.filter((c) => {
+    if (statusFilter === "ACTIVE" && !isClientActive(c)) return false;
+    if (statusFilter === "PROSPECT" && c.status !== "PROSPECT") return false;
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -102,6 +116,7 @@ export default function ClientsView({
         email: email.trim() || null,
         phone: phone.trim() || null,
         notes: notes.trim() || null,
+        status,
       };
 
       if (isEditing) {
@@ -156,18 +171,23 @@ export default function ClientsView({
         {/* Quick KPI Cards & Add Client button */}
         <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
           <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
+            <div className="text-[10px] uppercase font-bold text-emerald-200 tracking-wider">Active Clients</div>
+            <div className="text-xl font-extrabold text-white mt-0.5">{activeClientsCount}</div>
+          </div>
+
+          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
+            <div className="text-[10px] uppercase font-bold text-indigo-200 tracking-wider">Prospects</div>
+            <div className="text-xl font-extrabold text-white mt-0.5">{prospectsCount}</div>
+          </div>
+
+          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
             <div className="text-[10px] uppercase font-bold text-cyan-200 tracking-wider">Total Clients</div>
             <div className="text-xl font-extrabold text-white mt-0.5">{clients.length}</div>
           </div>
 
-          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
-            <div className="text-[10px] uppercase font-bold text-cyan-200 tracking-wider">Associated Tasks</div>
-            <div className="text-xl font-extrabold text-white mt-0.5">{totalClientTasks}</div>
-          </div>
-
           <button
             onClick={handleOpenAddModal}
-            className="bg-white hover:bg-cyan-50 text-cyan-900 px-4 py-2.5 rounded-xl text-xs font-extrabold shadow-md transition flex items-center space-x-1.5"
+            className="bg-white hover:bg-cyan-50 text-cyan-900 px-4 py-2.5 rounded-xl text-xs font-extrabold shadow-md transition flex items-center space-x-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4 text-cyan-700" />
             <span>Add Client</span>
@@ -175,9 +195,9 @@ export default function ClientsView({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-4 flex items-center justify-between gap-3">
-        <div className="relative flex-1">
+      {/* Toolbar: Search Bar & Active / All / Prospects Tabs */}
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="relative flex-1 min-w-[240px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -186,6 +206,44 @@ export default function ClientsView({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-medium"
           />
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button
+            onClick={() => setStatusFilter("ACTIVE")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+              statusFilter === "ACTIVE"
+                ? "bg-white text-emerald-800 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Active Clients ({activeClientsCount})</span>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter("ALL")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              statusFilter === "ALL"
+                ? "bg-white text-cyan-800 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            All Clients ({clients.length})
+          </button>
+
+          <button
+            onClick={() => setStatusFilter("PROSPECT")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+              statusFilter === "PROSPECT"
+                ? "bg-white text-indigo-800 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+            <span>Prospects ({prospectsCount})</span>
+          </button>
         </div>
 
         {searchTerm && (
@@ -201,9 +259,20 @@ export default function ClientsView({
       {/* Clients List / Table View */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-800">
-            Client Accounts Directory ({filteredClients.length})
-          </h4>
+          <div className="flex items-center space-x-2">
+            <h4 className="text-sm font-bold text-slate-800">
+              {statusFilter === "ACTIVE"
+                ? "Active Client Accounts"
+                : statusFilter === "PROSPECT"
+                ? "Prospects & Inquiries"
+                : "All Client Directory"} ({filteredClients.length})
+            </h4>
+            {statusFilter === "ACTIVE" && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Live Consulting Clients
+              </span>
+            )}
+          </div>
           <span className="text-xs text-slate-500 font-medium">
             List Format
           </span>
@@ -214,9 +283,10 @@ export default function ClientsView({
             <thead>
               <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                 <th className="py-3 px-4">Client / Company</th>
+                <th className="py-3 px-4">Account Status</th>
                 <th className="py-3 px-4">Contact Person</th>
                 <th className="py-3 px-4">Email & Phone</th>
-                <th className="py-3 px-4">Engagement Scope / Notes</th>
+                <th className="py-3 px-4">Projects & Scope</th>
                 <th className="py-3 px-4 text-center">Associated Tasks</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -224,11 +294,15 @@ export default function ClientsView({
             <tbody className="divide-y divide-slate-200">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <div className="text-sm font-bold text-slate-700">No clients found</div>
                     <p className="text-xs text-slate-400 mt-1">
-                      {searchTerm ? "No client matches your search filter." : "Get started by adding your first client account."}
+                      {statusFilter === "ACTIVE"
+                        ? "No currently active clients. Onboard an inquiry project to automatically add them here!"
+                        : searchTerm
+                        ? "No client matches your search filter."
+                        : "Get started by adding your first client account."}
                     </p>
                   </td>
                 </tr>
@@ -252,6 +326,21 @@ export default function ClientsView({
                           )}
                         </div>
                       </div>
+                    </td>
+
+                    {/* Account Status Badge */}
+                    <td className="py-3.5 px-4">
+                      {isClientActive(client) ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Active Client
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                          Prospect / Lead
+                        </span>
+                      )}
                     </td>
 
                     {/* Contact Person */}
@@ -280,14 +369,35 @@ export default function ClientsView({
                       </div>
                     </td>
 
-                    {/* Notes */}
+                    {/* Projects & Scope / Notes */}
                     <td className="py-3.5 px-4 text-slate-600 text-[11px] max-w-xs">
+                      {client.projects && client.projects.length > 0 && (
+                        <div className="flex items-center gap-1 mb-1 flex-wrap">
+                          {client.projects.map((p) => (
+                            <span
+                              key={p.id}
+                              className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border truncate max-w-[130px] ${
+                                p.status === "ONGOING"
+                                  ? "bg-blue-50 text-blue-800 border-blue-200"
+                                  : p.status === "ONBOARD"
+                                  ? "bg-purple-50 text-purple-800 border-purple-200"
+                                  : p.status === "COMPLETED"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : "bg-slate-50 text-slate-700 border-slate-200"
+                              }`}
+                              title={`${p.title} (${p.status})`}
+                            >
+                              {p.title}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {client.notes ? (
                         <span className="line-clamp-2 italic text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">
                           "{client.notes}"
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic">General consultation</span>
+                        <span className="text-slate-400 italic">General consulting</span>
                       )}
                     </td>
 
@@ -412,6 +522,21 @@ export default function ClientsView({
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Account Status
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none font-bold bg-white"
+                >
+                  <option value="ACTIVE">🟢 Active Client (Live Consulting / Active Projects)</option>
+                  <option value="PROSPECT">🔮 Prospect / Inquiry Lead</option>
+                  <option value="INACTIVE">⚪ Inactive Client Account</option>
+                </select>
               </div>
 
               <div>

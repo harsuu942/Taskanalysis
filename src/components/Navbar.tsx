@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Task } from "@/types";
+import { User, Task, DailyProductivityStats } from "@/types";
 import {
   ListTodo,
   Building2,
@@ -17,6 +17,12 @@ import {
   Code2,
   LogOut,
   Terminal,
+  Zap,
+  CheckCircle2,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  ChevronDown,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -30,6 +36,8 @@ interface NavbarProps {
   pipelineValue?: number;
   pendingTasksCount?: number;
   learningMasteredCount?: number;
+  todayProductivity?: DailyProductivityStats | null;
+  yesterdayProductivity?: DailyProductivityStats | null;
   onLogout?: () => void;
 }
 
@@ -44,8 +52,11 @@ export default function Navbar({
   pipelineValue = 0,
   pendingTasksCount = 0,
   learningMasteredCount = 0,
+  todayProductivity,
+  yesterdayProductivity,
   onLogout,
 }: NavbarProps) {
+  const [showProductivityPopover, setShowProductivityPopover] = useState(false);
   // Navigation tabs matching the exact previous theme color gradients
   const navItems = [
     {
@@ -126,8 +137,190 @@ export default function Navbar({
             </div>
           </div>
 
-          {/* Right Section: Active Timer, Pipeline KPI, Quick Add, Settings, Profile */}
+          {/* Right Section: Productivity Widget, Active Timer, Pipeline KPI, Quick Add, Settings, Profile */}
           <div className="flex items-center space-x-2.5 flex-shrink-0">
+            {/* Animated Today's Productivity Widget */}
+            {(() => {
+              const todayRate = todayProductivity?.completionRate ?? 0;
+              const radius = 10;
+              const circumference = 2 * Math.PI * radius; // ~62.83
+              const strokeDashoffset = circumference - (todayRate / 100) * circumference;
+
+              const strokeColor =
+                todayRate >= 80
+                  ? "stroke-emerald-400"
+                  : todayRate >= 50
+                  ? "stroke-blue-400"
+                  : todayRate > 0
+                  ? "stroke-amber-400"
+                  : "stroke-slate-600";
+
+              const yesterdayRate = yesterdayProductivity?.completionRate ?? 0;
+              const rateDelta = todayRate - yesterdayRate;
+
+              return (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowProductivityPopover((prev) => !prev)}
+                    className="relative flex items-center space-x-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition group border border-indigo-700/50 cursor-pointer overflow-hidden"
+                    title="Click to view daily productivity details"
+                  >
+                    {/* Animated background subtle glow shimmer */}
+                    <span className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-xl blur-xs opacity-20 group-hover:opacity-40 transition animate-pulse"></span>
+
+                    {/* SVG Animated Circular Progress Ring */}
+                    <div className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
+                      <svg className="w-6 h-6 transform -rotate-90" viewBox="0 0 24 24">
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r={radius}
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          className="stroke-slate-700/60"
+                          fill="transparent"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r={radius}
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          strokeLinecap="round"
+                          className={`${strokeColor} transition-all duration-1000 ease-out`}
+                          fill="transparent"
+                        />
+                      </svg>
+                      <Zap className="w-2.5 h-2.5 text-amber-400 fill-amber-400 absolute animate-pulse" />
+                    </div>
+
+                    {/* Text Info */}
+                    <div className="flex flex-col text-left leading-none">
+                      <div className="flex items-center space-x-1">
+                        <span className="text-[10px] uppercase tracking-wider text-indigo-300 font-extrabold">
+                          Today
+                        </span>
+                        <span className="text-xs font-black text-white">
+                          {todayRate}%
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-slate-300 font-semibold mt-0.5">
+                        {todayProductivity ? `${todayProductivity.completedTasks}/${todayProductivity.totalTasks} Done` : "0 Done"}
+                      </span>
+                    </div>
+
+                    <ChevronDown
+                      className={`w-3 h-3 text-indigo-300 transition-transform ${
+                        showProductivityPopover ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Popover */}
+                  {showProductivityPopover && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowProductivityPopover(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black text-slate-900">
+                                Daily Productivity Pulse
+                              </h4>
+                              <p className="text-[10px] text-slate-400 font-medium">
+                                Live performance tracking
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                            {todayProductivity?.date || "Today"}
+                          </span>
+                        </div>
+
+                        {/* Today's breakdown */}
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-700">Today's Completion</span>
+                            <span className="text-sm font-black text-indigo-600">{todayRate}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-700 ${
+                                todayRate >= 80
+                                  ? "bg-emerald-500"
+                                  : todayRate >= 50
+                                  ? "bg-blue-500"
+                                  : "bg-amber-500"
+                              }`}
+                              style={{ width: `${todayRate}%` }}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                              <span className="text-slate-400 block text-[10px]">Completed</span>
+                              <span className="font-black text-emerald-600 flex items-center gap-1 mt-0.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {todayProductivity?.completedTasks ?? 0} / {todayProductivity?.totalTasks ?? 0}
+                              </span>
+                            </div>
+                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                              <span className="text-slate-400 block text-[10px]">Logged Hours</span>
+                              <span className="font-black text-blue-600 flex items-center gap-1 mt-0.5">
+                                <Clock className="w-3.5 h-3.5" />
+                                {todayProductivity?.totalHoursLogged ?? 0} hrs
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Yesterday Comparison */}
+                        <div className="mt-3 pt-3 border-t border-slate-100">
+                          <div className="flex items-center justify-between text-[11px] mb-1.5">
+                            <span className="font-bold text-slate-500">Yesterday Benchmark</span>
+                            <span className="font-black text-slate-700">{yesterdayRate}%</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <span>{yesterdayProductivity?.completedTasks ?? 0} of {yesterdayProductivity?.totalTasks ?? 0} tasks</span>
+                            <span>{yesterdayProductivity?.totalHoursLogged ?? 0} hrs logged</span>
+                          </div>
+
+                          {/* Delta Pill */}
+                          <div className="mt-2 flex items-center justify-between text-[10px] font-bold">
+                            <span className="text-slate-400">Day-over-day Delta:</span>
+                            {rateDelta > 0 ? (
+                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-0.5">
+                                <ArrowUpRight className="w-3 h-3" />
+                                +{rateDelta}% vs Yesterday
+                              </span>
+                            ) : rateDelta < 0 ? (
+                              <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5">
+                                <ArrowDownRight className="w-3 h-3" />
+                                {rateDelta}% vs Yesterday
+                              </span>
+                            ) : (
+                              <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                Matched Yesterday
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Active Running Task Indicator */}
             {activeRunningTask && (
               <div className="hidden xl:flex items-center space-x-2 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-900 shadow-xs animate-pulse">

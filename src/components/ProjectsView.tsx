@@ -57,8 +57,13 @@ export default function ProjectsView({
 
   // Form fields
   const [formTitle, setFormTitle] = useState("");
+  const [formClientMode, setFormClientMode] = useState<"SELECT" | "NEW">("SELECT");
   const [formClientId, setFormClientId] = useState("");
-  const [formStatus, setFormStatus] = useState<ProjectStatusType>("ONBOARD");
+  const [formClientName, setFormClientName] = useState("");
+  const [formClientCompany, setFormClientCompany] = useState("");
+  const [formClientEmail, setFormClientEmail] = useState("");
+  const [formClientPhone, setFormClientPhone] = useState("");
+  const [formStatus, setFormStatus] = useState<ProjectStatusType>("INQUIRY");
   const [formScopeOfWork, setFormScopeOfWork] = useState("");
   const [formInitialEstimation, setFormInitialEstimation] = useState("");
   const [formIsApproved, setFormIsApproved] = useState(false);
@@ -67,6 +72,8 @@ export default function ProjectsView({
   const [formApprovedTimeframe, setFormApprovedTimeframe] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formTargetDeliveryDate, setFormTargetDeliveryDate] = useState("");
+  const [formFollowUpDate, setFormFollowUpDate] = useState("");
+  const [formFollowUpNote, setFormFollowUpNote] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [savingProject, setSavingProject] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -98,8 +105,13 @@ export default function ProjectsView({
   const handleOpenCreateModal = () => {
     setEditingProject(null);
     setFormTitle("");
+    setFormClientMode("SELECT");
     setFormClientId(clients[0]?.id || "");
-    setFormStatus("ONBOARD");
+    setFormClientName("");
+    setFormClientCompany("");
+    setFormClientEmail("");
+    setFormClientPhone("");
+    setFormStatus("INQUIRY");
     setFormScopeOfWork("");
     setFormInitialEstimation("");
     setFormIsApproved(false);
@@ -108,6 +120,8 @@ export default function ProjectsView({
     setFormApprovedTimeframe("");
     setFormStartDate("");
     setFormTargetDeliveryDate("");
+    setFormFollowUpDate("");
+    setFormFollowUpNote("");
     setFormNotes("");
     setFormError(null);
     setIsProjectModalOpen(true);
@@ -117,8 +131,13 @@ export default function ProjectsView({
   const handleOpenEditModal = (proj: Project) => {
     setEditingProject(proj);
     setFormTitle(proj.title || "");
+    setFormClientMode("SELECT");
     setFormClientId(proj.clientId || "");
-    setFormStatus(proj.status || "ONBOARD");
+    setFormClientName("");
+    setFormClientCompany("");
+    setFormClientEmail("");
+    setFormClientPhone("");
+    setFormStatus(proj.status || "INQUIRY");
     setFormScopeOfWork(proj.scopeOfWork || "");
     setFormInitialEstimation(proj.initialEstimation || "");
     setFormIsApproved(Boolean(proj.isApproved));
@@ -131,6 +150,8 @@ export default function ProjectsView({
     setFormApprovedTimeframe(proj.approvedTimeframe || "");
     setFormStartDate(proj.startDate ? proj.startDate.split("T")[0] : "");
     setFormTargetDeliveryDate(proj.targetDeliveryDate ? proj.targetDeliveryDate.split("T")[0] : "");
+    setFormFollowUpDate(proj.followUpDate ? proj.followUpDate.split("T")[0] : "");
+    setFormFollowUpNote(proj.followUpNote || "");
     setFormNotes(proj.notes || "");
     setFormError(null);
     setIsProjectModalOpen(true);
@@ -143,9 +164,16 @@ export default function ProjectsView({
       setFormError("Project title is required.");
       return;
     }
-    if (!formClientId) {
-      setFormError("Please select a client.");
-      return;
+    if (formClientMode === "NEW") {
+      if (!formClientName.trim()) {
+        setFormError("Client contact name is required when creating a new client.");
+        return;
+      }
+    } else {
+      if (!formClientId) {
+        setFormError("Please select a client or toggle '+ New Client'.");
+        return;
+      }
     }
 
     setSavingProject(true);
@@ -154,7 +182,6 @@ export default function ProjectsView({
     try {
       const payload: any = {
         title: formTitle.trim(),
-        clientId: formClientId,
         status: formStatus,
         scopeOfWork: formScopeOfWork.trim() || null,
         initialEstimation: formInitialEstimation.trim() || null,
@@ -164,8 +191,19 @@ export default function ProjectsView({
         approvedTimeframe: formApprovedTimeframe.trim() || null,
         startDate: formStartDate || null,
         targetDeliveryDate: formTargetDeliveryDate || null,
+        followUpDate: formFollowUpDate || null,
+        followUpNote: formFollowUpNote.trim() || null,
         notes: formNotes.trim() || null,
       };
+
+      if (formClientMode === "NEW") {
+        payload.clientName = formClientName.trim();
+        payload.clientCompany = formClientCompany.trim() || null;
+        payload.clientEmail = formClientEmail.trim() || null;
+        payload.clientPhone = formClientPhone.trim() || null;
+      } else {
+        payload.clientId = formClientId;
+      }
 
       const url = "/api/projects";
       const method = editingProject ? "PUT" : "POST";
@@ -473,6 +511,7 @@ export default function ProjectsView({
     .filter((p) => p.isApproved && p.approvedAmount)
     .reduce((acc, p) => acc + (p.approvedAmount || 0), 0);
 
+  const inquiryCount = projects.filter((p) => p.status === "INQUIRY").length;
   const onboardCount = projects.filter((p) => p.status === "ONBOARD").length;
   const ongoingCount = projects.filter((p) => p.status === "ONGOING").length;
   const holdCount = projects.filter((p) => p.status === "HOLD").length;
@@ -506,13 +545,18 @@ export default function ProjectsView({
           </div>
 
           <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
-            <div className="text-[10px] uppercase font-bold text-blue-200 tracking-wider">Ongoing</div>
-            <div className="text-xl font-black text-white mt-0.5">{ongoingCount}</div>
+            <div className="text-[10px] uppercase font-bold text-indigo-200 tracking-wider">Inquiries</div>
+            <div className="text-xl font-black text-white mt-0.5">{inquiryCount}</div>
           </div>
 
           <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
             <div className="text-[10px] uppercase font-bold text-purple-200 tracking-wider">Onboard</div>
             <div className="text-xl font-black text-white mt-0.5">{onboardCount}</div>
+          </div>
+
+          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
+            <div className="text-[10px] uppercase font-bold text-blue-200 tracking-wider">Ongoing</div>
+            <div className="text-xl font-black text-white mt-0.5">{ongoingCount}</div>
           </div>
 
           <button
@@ -545,6 +589,7 @@ export default function ProjectsView({
           className="text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="ALL">All Stages ({projects.length})</option>
+          <option value="INQUIRY">Inquiry &amp; Estimation ({inquiryCount})</option>
           <option value="ONBOARD">Onboard ({onboardCount})</option>
           <option value="ONGOING">Ongoing ({ongoingCount})</option>
           <option value="HOLD">On Hold ({holdCount})</option>
@@ -949,41 +994,211 @@ export default function ProjectsView({
                 />
               </div>
 
-              {/* Client & Status Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Client *
+              {/* Client Mode Switch & Input */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Client Account *
                   </label>
-                  <select
-                    required
-                    value={formClientId}
-                    onChange={(e) => setFormClientId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
-                  >
-                    <option value="">Select client...</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.company ? `${c.company} (${c.name})` : c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 text-xs font-bold shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setFormClientMode("SELECT")}
+                      className={`px-2.5 py-1 rounded-md transition ${
+                        formClientMode === "SELECT"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Existing Client
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormClientMode("NEW")}
+                      className={`px-2.5 py-1 rounded-md transition flex items-center gap-1 ${
+                        formClientMode === "NEW"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Plus className="w-3 h-3" /> New Client
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Project Stage *
-                  </label>
-                  <select
-                    value={formStatus}
-                    onChange={(e) => setFormStatus(e.target.value as ProjectStatusType)}
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
-                  >
-                    <option value="ONBOARD">🟣 Onboard (Scoping / Proposal)</option>
-                    <option value="ONGOING">🔵 Ongoing (Active Delivery)</option>
-                    <option value="HOLD">🟡 On Hold (Blocked / Awaiting Review)</option>
-                    <option value="COMPLETED">🟢 Completed (Shipped / Signed off)</option>
-                  </select>
+                {formClientMode === "SELECT" ? (
+                  <div>
+                    <select
+                      value={formClientId}
+                      onChange={(e) => setFormClientId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                    >
+                      <option value="">Select client from directory...</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.company ? `${c.company} (${c.name})` : c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {clients.length === 0 && (
+                      <p className="text-[11px] text-amber-600 mt-1">
+                        No clients yet. Toggle "+ New Client" above to create one right here.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Contact Person Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Alex Rivera, Sarah Chen"
+                        value={formClientName}
+                        onChange={(e) => setFormClientName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Company / Startup Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Nexus AI, Apex Tech"
+                        value={formClientCompany}
+                        onChange={(e) => setFormClientCompany(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Client Email (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="founder@company.com"
+                        value={formClientEmail}
+                        onChange={(e) => setFormClientEmail(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Client Phone (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="+1 (555) 000-0000"
+                        value={formClientPhone}
+                        onChange={(e) => setFormClientPhone(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Project Stage */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Project Stage *
+                </label>
+                <select
+                  value={formStatus}
+                  onChange={(e) => setFormStatus(e.target.value as ProjectStatusType)}
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                >
+                  <option value="INQUIRY">🔮 Inquiry &amp; Estimation (Lead / Proposal Sent)</option>
+                  <option value="ONBOARD">🟣 Onboard (Client Signed / Scoping SOW)</option>
+                  <option value="ONGOING">🔵 Ongoing (Active Sprint Delivery)</option>
+                  <option value="HOLD">🟡 On Hold (Awaiting Feedback / Assets)</option>
+                  <option value="COMPLETED">🟢 Completed (Shipped / Signed Off)</option>
+                </select>
+              </div>
+
+              {/* Follow-Up Reminder Section */}
+              <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-indigo-950 uppercase tracking-wider">
+                    <Clock className="w-4 h-4 text-indigo-600" />
+                    <span>Follow-Up Reminder &amp; Notes</span>
+                  </div>
+                  {formFollowUpDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormFollowUpDate("");
+                        setFormFollowUpNote("");
+                      }}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                    >
+                      Clear Reminder
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                      Reminder Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formFollowUpDate}
+                      onChange={(e) => setFormFollowUpDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-white border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-900"
+                    />
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 1);
+                          setFormFollowUpDate(d.toISOString().split("T")[0]);
+                        }}
+                        className="text-[10px] px-2 py-0.5 bg-white border border-indigo-200 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold cursor-pointer"
+                      >
+                        + Tomorrow
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 3);
+                          setFormFollowUpDate(d.toISOString().split("T")[0]);
+                        }}
+                        className="text-[10px] px-2 py-0.5 bg-white border border-indigo-200 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold cursor-pointer"
+                      >
+                        + 3 Days
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 7);
+                          setFormFollowUpDate(d.toISOString().split("T")[0]);
+                        }}
+                        className="text-[10px] px-2 py-0.5 bg-white border border-indigo-200 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold cursor-pointer"
+                      >
+                        + 1 Week
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                      Reminder Note / Next Action
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="e.g. Call founder to confirm estimation budget & start date"
+                      value={formFollowUpNote}
+                      onChange={(e) => setFormFollowUpNote(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-white border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900"
+                    />
+                  </div>
                 </div>
               </div>
 

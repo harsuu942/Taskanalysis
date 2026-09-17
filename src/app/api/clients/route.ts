@@ -5,8 +5,16 @@ export async function GET(request: Request) {
   try {
     const clients = await prisma.client.findMany({
       include: {
+        projects: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            approvedAmount: true,
+          },
+        },
         _count: {
-          select: { tasks: true },
+          select: { tasks: true, projects: true },
         },
       },
       orderBy: [
@@ -24,7 +32,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, company, email, phone, notes } = body;
+    const { name, company, email, phone, notes, status = "ACTIVE" } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -40,10 +48,19 @@ export async function POST(request: Request) {
         email: email?.trim() || null,
         phone: phone?.trim() || null,
         notes: notes?.trim() || null,
+        status,
       },
       include: {
+        projects: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            approvedAmount: true,
+          },
+        },
         _count: {
-          select: { tasks: true },
+          select: { tasks: true, projects: true },
         },
       },
     });
@@ -57,7 +74,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, name, company, email, phone, notes } = body;
+    const { id, name, company, email, phone, notes, status } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -73,18 +90,29 @@ export async function PUT(request: Request) {
       );
     }
 
+    const data: any = {
+      name: name.trim(),
+      company: company?.trim() || null,
+      email: email?.trim() || null,
+      phone: phone?.trim() || null,
+      notes: notes?.trim() || null,
+    };
+    if (status !== undefined) data.status = status;
+
     const updatedClient = await prisma.client.update({
       where: { id },
-      data: {
-        name: name.trim(),
-        company: company?.trim() || null,
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        notes: notes?.trim() || null,
-      },
+      data,
       include: {
+        projects: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            approvedAmount: true,
+          },
+        },
         _count: {
-          select: { tasks: true },
+          select: { tasks: true, projects: true },
         },
       },
     });

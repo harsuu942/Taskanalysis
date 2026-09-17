@@ -56,6 +56,16 @@ export default function ProjectKanbanBoard({
     symbol: React.ReactNode;
   }[] = [
     {
+      id: "INQUIRY",
+      title: "Inquiry & Estimation",
+      description: "Leads, estimation provided & follow-ups",
+      columnBg: "bg-indigo-50/40 border border-indigo-200/70",
+      headerBg: "bg-indigo-100/50 border-b border-indigo-200/80",
+      cardStyle: "bg-gradient-to-b from-indigo-50/95 to-indigo-100/60 hover:from-indigo-100/80 hover:to-indigo-100 border border-indigo-300/80 shadow-2xs hover:shadow-md text-indigo-950 ring-1 ring-indigo-200/40",
+      badgeBg: "bg-indigo-200 text-indigo-900 border border-indigo-300 font-extrabold",
+      symbol: <Sparkles className="w-3.5 h-3.5 text-indigo-600" />,
+    },
+    {
       id: "ONBOARD",
       title: "Onboard & Scoping",
       description: "Architecture discovery & SOW estimation",
@@ -232,6 +242,39 @@ export default function ProjectKanbanBoard({
                               </button>
                             </div>
                           </div>
+
+                          {/* Follow-Up Reminder Chip */}
+                          {project.followUpDate && (
+                            <div
+                              className={`p-2 rounded-lg border text-[11px] font-bold flex items-center justify-between gap-1.5 shadow-2xs ${
+                                new Date(project.followUpDate).getTime() < Date.now() - 86400000
+                                  ? "bg-rose-50 text-rose-800 border-rose-300"
+                                  : new Date(project.followUpDate).toISOString().split("T")[0] ===
+                                    new Date().toISOString().split("T")[0]
+                                  ? "bg-amber-50 text-amber-900 border-amber-300 animate-pulse"
+                                  : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                <Clock className="w-3.5 h-3.5 flex-shrink-0 text-indigo-600" />
+                                <span className="truncate">
+                                  Follow-up: {new Date(project.followUpDate).toLocaleDateString()}
+                                  {project.followUpNote ? ` • "${project.followUpNote}"` : ""}
+                                </span>
+                              </div>
+                              {new Date(project.followUpDate).getTime() < Date.now() - 86400000 && (
+                                <span className="text-[9px] uppercase font-black px-1.5 py-0.5 bg-rose-200 text-rose-900 rounded flex-shrink-0">
+                                  Overdue
+                                </span>
+                              )}
+                              {new Date(project.followUpDate).toISOString().split("T")[0] ===
+                                new Date().toISOString().split("T")[0] && (
+                                <span className="text-[9px] uppercase font-black px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded flex-shrink-0">
+                                  Today
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           {/* Scope of Work Snippet */}
                           {project.scopeOfWork ? (

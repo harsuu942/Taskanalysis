@@ -44,6 +44,8 @@ export interface TimeLog {
   user?: User;
 }
 
+export type ClientStatusType = "ACTIVE" | "PROSPECT" | "INACTIVE";
+
 export interface Client {
   id: string;
   name: string;
@@ -51,9 +53,15 @@ export interface Client {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  status?: ClientStatusType;
   createdAt: string;
   updatedAt: string;
-  projects?: Project[];
+  projects?: {
+    id: string;
+    title: string;
+    status: string;
+    approvedAmount?: number | null;
+  }[];
   _count?: {
     tasks: number;
     projects?: number;
@@ -202,7 +210,7 @@ export interface LeaveStats {
   onLeaveTodayCount: number;
 }
 
-export type ProjectStatusType = "ONBOARD" | "ONGOING" | "HOLD" | "COMPLETED";
+export type ProjectStatusType = "INQUIRY" | "ONBOARD" | "ONGOING" | "HOLD" | "COMPLETED";
 
 export interface ProjectDiscussion {
   id: string;
@@ -239,6 +247,8 @@ export interface Project {
   approvedTimeframe?: string | null;
   startDate?: string | null;
   targetDeliveryDate?: string | null;
+  followUpDate?: string | null;
+  followUpNote?: string | null;
   isApproved: boolean;
   approvedAt?: string | null;
   notes?: string | null;
@@ -252,6 +262,18 @@ export interface Project {
     attachments?: number;
     tasks: number;
   };
+}
+
+export interface DailyProductivityStats {
+  date: string; // YYYY-MM-DD
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  onHoldTasks: number;
+  todoTasks: number;
+  completionRate: number; // 0 - 100%
+  totalHoursLogged: number; // e.g. 4.5
+  totalSecondsLogged: number;
 }
 
 export type ProductIdeaStatus = "BRAINSTORMING" | "VALIDATING" | "PLANNING" | "IN_EXECUTION" | "LAUNCHED" | "ON_HOLD";
