@@ -210,7 +210,14 @@ export interface LeaveStats {
   onLeaveTodayCount: number;
 }
 
-export type ProjectStatusType = "INQUIRY" | "ONBOARD" | "ONGOING" | "HOLD" | "COMPLETED";
+export type ProjectStatusType =
+  | "INQUIRY"
+  | "ESTIMATION_SENT"
+  | "FOLLOW_UP"
+  | "ONBOARD"
+  | "ONGOING"
+  | "HOLD"
+  | "COMPLETED";
 
 export interface ProjectDiscussion {
   id: string;

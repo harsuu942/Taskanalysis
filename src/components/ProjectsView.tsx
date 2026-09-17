@@ -247,6 +247,35 @@ export default function ProjectsView({
     }
   };
 
+  // Quick Reschedule or Clear Follow-up directly from Kanban Card
+  const handleQuickFollowUp = async (
+    projectId: string,
+    newDate: string | null,
+    note?: string | null
+  ) => {
+    try {
+      const res = await fetch("/api/projects", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: projectId,
+          followUpDate: newDate,
+          ...(note !== undefined ? { followUpNote: note } : {}),
+        }),
+      });
+      if (res.ok) {
+        onRefresh();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOpenCreateInStage = (status: ProjectStatusType) => {
+    handleOpenCreateModal();
+    setFormStatus(status);
+  };
+
   // Delete Project Handler
   const handleDeleteProject = async (projectId: string) => {
     if (!confirm("Are you sure you want to delete this project? All associated discussion logs and attachments will also be removed.")) {
@@ -512,59 +541,85 @@ export default function ProjectsView({
     .reduce((acc, p) => acc + (p.approvedAmount || 0), 0);
 
   const inquiryCount = projects.filter((p) => p.status === "INQUIRY").length;
+  const estimationSentCount = projects.filter((p) => p.status === "ESTIMATION_SENT").length;
+  const followUpCount = projects.filter((p) => p.status === "FOLLOW_UP").length;
   const onboardCount = projects.filter((p) => p.status === "ONBOARD").length;
   const ongoingCount = projects.filter((p) => p.status === "ONGOING").length;
   const holdCount = projects.filter((p) => p.status === "HOLD").length;
   const completedCount = projects.filter((p) => p.status === "COMPLETED").length;
 
+  const followUpsDueCount = projects.filter((p) => {
+    if (!p.followUpDate) return false;
+    const fDate = new Date(p.followUpDate).toISOString().split("T")[0];
+    const tDate = new Date().toISOString().split("T")[0];
+    return fDate <= tDate;
+  }).length;
+
   return (
     <div className="space-y-6 w-full max-w-full">
       {/* Top Banner with Stats */}
-      <div className="bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-700 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 border border-indigo-900/50">
         <div>
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-xs">
-              <Briefcase className="w-6 h-6 text-indigo-200" />
+            <div className="p-2.5 bg-indigo-500/20 rounded-xl backdrop-blur-xs border border-indigo-400/30">
+              <Briefcase className="w-6 h-6 text-indigo-300" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold tracking-tight">Software Projects, SOW &amp; Deal Pipeline</h2>
-              <p className="text-xs text-indigo-100 mt-0.5">
-                Manage client scopes of work, drag &amp; drop Kanban stages, approved estimations, and meeting discussions
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-extrabold tracking-tight text-white">Client Inquiries &amp; SOW Pipeline</h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
+                  CRM Funnel
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Track incoming client inquiries, estimations provided, scheduled follow-up reminders, and client onboarding workflow
               </p>
             </div>
           </div>
         </div>
 
         {/* Quick KPI Badges */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center min-w-[100px]">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="bg-white/10 backdrop-blur-xs px-3.5 py-2 rounded-xl border border-white/15 text-center min-w-[90px]">
             <div className="text-[10px] uppercase font-bold text-indigo-200 tracking-wider">Approved Value</div>
-            <div className="text-xl font-black text-white mt-0.5">
+            <div className="text-lg font-black text-white mt-0.5">
               {"$"}{totalApprovedRevenue.toLocaleString()}
             </div>
           </div>
 
-          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
+          <div className="bg-white/10 backdrop-blur-xs px-3.5 py-2 rounded-xl border border-white/15 text-center">
             <div className="text-[10px] uppercase font-bold text-indigo-200 tracking-wider">Inquiries</div>
-            <div className="text-xl font-black text-white mt-0.5">{inquiryCount}</div>
+            <div className="text-lg font-black text-white mt-0.5">{inquiryCount}</div>
           </div>
 
-          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
-            <div className="text-[10px] uppercase font-bold text-purple-200 tracking-wider">Onboard</div>
-            <div className="text-xl font-black text-white mt-0.5">{onboardCount}</div>
+          <div className="bg-white/10 backdrop-blur-xs px-3.5 py-2 rounded-xl border border-white/15 text-center">
+            <div className="text-[10px] uppercase font-bold text-blue-200 tracking-wider">Est. Sent</div>
+            <div className="text-lg font-black text-white mt-0.5">{estimationSentCount}</div>
           </div>
 
-          <div className="bg-white/15 backdrop-blur-xs px-4 py-2.5 rounded-xl border border-white/20 text-center">
-            <div className="text-[10px] uppercase font-bold text-blue-200 tracking-wider">Ongoing</div>
-            <div className="text-xl font-black text-white mt-0.5">{ongoingCount}</div>
+          <div className={`backdrop-blur-xs px-3.5 py-2 rounded-xl border text-center ${
+            followUpsDueCount > 0
+              ? "bg-amber-500/20 border-amber-400/40 text-amber-200 animate-pulse"
+              : "bg-white/10 border-white/15 text-white"
+          }`}>
+            <div className="text-[10px] uppercase font-bold tracking-wider">Follow-Ups Due</div>
+            <div className="text-lg font-black mt-0.5 flex items-center justify-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              <span>{followUpsDueCount}</span>
+            </div>
+          </div>
+
+          <div className="bg-emerald-500/20 backdrop-blur-xs px-3.5 py-2 rounded-xl border border-emerald-400/30 text-center">
+            <div className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider">Onboarded</div>
+            <div className="text-lg font-black text-emerald-300 mt-0.5">{onboardCount}</div>
           </div>
 
           <button
             onClick={handleOpenCreateModal}
-            className="bg-white hover:bg-indigo-50 text-indigo-900 px-4 py-2.5 rounded-xl text-xs font-black shadow-md transition flex items-center space-x-1.5 cursor-pointer"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-md transition flex items-center space-x-1.5 cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-indigo-700" />
-            <span>New Project</span>
+            <Plus className="w-4 h-4" />
+            <span>New Inquiry</span>
           </button>
         </div>
       </div>
@@ -589,11 +644,12 @@ export default function ProjectsView({
           className="text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="ALL">All Stages ({projects.length})</option>
-          <option value="INQUIRY">Inquiry &amp; Estimation ({inquiryCount})</option>
-          <option value="ONBOARD">Onboard ({onboardCount})</option>
-          <option value="ONGOING">Ongoing ({ongoingCount})</option>
-          <option value="HOLD">On Hold ({holdCount})</option>
-          <option value="COMPLETED">Delivered ({completedCount})</option>
+          <option value="INQUIRY">📥 New Inquiries ({inquiryCount})</option>
+          <option value="ESTIMATION_SENT">📝 Estimation Sent ({estimationSentCount})</option>
+          <option value="FOLLOW_UP">🔔 Follow-Ups ({followUpCount})</option>
+          <option value="ONBOARD">🎉 Client Onboarded ({onboardCount})</option>
+          <option value="ONGOING">🚀 In Delivery ({ongoingCount})</option>
+          <option value="HOLD">⏸️ On Hold ({holdCount})</option>
         </select>
 
         {/* Filter by Client */}
@@ -646,6 +702,8 @@ export default function ProjectsView({
           onOpenSowModal={handleOpenSowModal}
           onStatusChange={handleStatusChange}
           onDeleteProject={handleDeleteProject}
+          onOpenCreateInStage={handleOpenCreateInStage}
+          onQuickFollowUp={handleQuickFollowUp}
         />
       ) : (
         /* Grid Cards View */
@@ -1110,11 +1168,13 @@ export default function ProjectsView({
                   onChange={(e) => setFormStatus(e.target.value as ProjectStatusType)}
                   className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
                 >
-                  <option value="INQUIRY">🔮 Inquiry &amp; Estimation (Lead / Proposal Sent)</option>
-                  <option value="ONBOARD">🟣 Onboard (Client Signed / Scoping SOW)</option>
-                  <option value="ONGOING">🔵 Ongoing (Active Sprint Delivery)</option>
-                  <option value="HOLD">🟡 On Hold (Awaiting Feedback / Assets)</option>
-                  <option value="COMPLETED">🟢 Completed (Shipped / Signed Off)</option>
+                  <option value="INQUIRY">📥 New Inquiry (Lead / Requirement Gathering)</option>
+                  <option value="ESTIMATION_SENT">📝 Estimation &amp; SOW Provided (Quote Shared)</option>
+                  <option value="FOLLOW_UP">🔔 Follow-Up &amp; Negotiation (Active Reminders)</option>
+                  <option value="ONBOARD">🎉 Client Onboarded (Deal Won • Auto-added to Active Clients)</option>
+                  <option value="ONGOING">🚀 In Delivery (Active Milestone Execution)</option>
+                  <option value="HOLD">⏸️ On Hold / Postponed (Paused / Budget Delay)</option>
+                  <option value="COMPLETED">✅ Completed &amp; Shipped</option>
                 </select>
               </div>
 

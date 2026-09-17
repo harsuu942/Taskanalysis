@@ -78,7 +78,7 @@ export default function Navbar({
     },
     {
       id: "projects",
-      label: "Ongoing Projects & SOW",
+      label: "Inquiries & Client SOW",
       icon: Briefcase,
       badge: projectsCount > 0 ? projectsCount : undefined,
       activeColor:
