@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { processRecurringTasks } from "@/lib/scheduler";
+import { processRecurringTasks, getLastSchedulerRunTime } from "@/lib/scheduler";
 
 export async function GET(request: Request) {
   try {
-    // Auto-process any pending recurring tasks for today
-    try {
-      await processRecurringTasks();
-    } catch (schedErr) {
-      console.error("[Tasks API] Scheduler auto-run warning:", schedErr);
+    // Auto-process any pending recurring tasks for today (throttled to avoid redundant runs on rapid queries)
+    if (Date.now() - getLastSchedulerRunTime() > 30000) {
+      try {
+        const clientTz = request.headers.get("x-timezone") || "Asia/Kolkata";
+        await processRecurringTasks({ timezone: clientTz });
+      } catch (schedErr) {
+        console.error("[Tasks API] Scheduler auto-run warning:", schedErr);
+      }
     }
 
     const { searchParams } = new URL(request.url);
@@ -180,51 +183,11 @@ export async function POST(request: Request) {
     const isRecurring = recurrence !== "ONE_TIME";
     const numericBillableHours = billableHours ? parseFloat(billableHours) : 0;
 
-    // 1. Create task
-    const task = await prisma.task.create({
-      data: {
-        title,
-        description,
-        recurrence,
-        monthlyDay: monthlyDay ? parseInt(monthlyDay, 10) : null,
-        weeklyDay: weeklyDay || null,
-        startDate: startDate ? new Date(startDate) : new Date(),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        priority,
-        employeeStatus: "TODO",
-        adminStatus: "NOT_SUBMITTED",
-        assignedToId: effectiveAssignedToId,
-        clientId: effectiveClientId,
-        billableHours: numericBillableHours,
-        createdById,
-        isRecurringTemplate: false,
-        taskClients: effectiveClientIds.length > 0 ? {
-          create: effectiveClientIds.map((cid) => ({ clientId: cid })),
-        } : undefined,
-        assignees: effectiveAssigneeIds.length > 0 ? {
-          create: effectiveAssigneeIds.map((uid) => ({ userId: uid })),
-        } : undefined,
-      },
-      include: {
-        assignedTo: true,
-        createdBy: true,
-        client: true,
-        taskClients: {
-          include: {
-            client: true,
-          },
-        },
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
-      },
-    });
+    let parentRecurringId: string | null = null;
 
-    // 2. If recurring, also create a template record so the scheduler can spawn it
+    // 1. If recurring, create template record first so initial task is linked to it
     if (isRecurring) {
-      await prisma.task.create({
+      const template = await prisma.task.create({
         data: {
           title,
           description,
@@ -250,7 +213,51 @@ export async function POST(request: Request) {
           } : undefined,
         },
       });
+      parentRecurringId = template.id;
     }
+
+    // 2. Create the active task instance
+    const task = await prisma.task.create({
+      data: {
+        title,
+        description,
+        recurrence,
+        monthlyDay: monthlyDay ? parseInt(monthlyDay, 10) : null,
+        weeklyDay: weeklyDay || null,
+        startDate: startDate ? new Date(startDate) : new Date(),
+        dueDate: dueDate ? new Date(dueDate) : null,
+        priority,
+        employeeStatus: "TODO",
+        adminStatus: "NOT_SUBMITTED",
+        assignedToId: effectiveAssignedToId,
+        clientId: effectiveClientId,
+        billableHours: numericBillableHours,
+        createdById,
+        isRecurringTemplate: false,
+        parentRecurringId,
+        taskClients: effectiveClientIds.length > 0 ? {
+          create: effectiveClientIds.map((cid) => ({ clientId: cid })),
+        } : undefined,
+        assignees: effectiveAssigneeIds.length > 0 ? {
+          create: effectiveAssigneeIds.map((uid) => ({ userId: uid })),
+        } : undefined,
+      },
+      include: {
+        assignedTo: true,
+        createdBy: true,
+        client: true,
+        taskClients: {
+          include: {
+            client: true,
+          },
+        },
+        assignees: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
 
     return NextResponse.json({ success: true, task });
   } catch (error: any) {

@@ -21,12 +21,13 @@ export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action") || "all";
+    const tz = searchParams.get("tz") || request.headers.get("x-timezone") || "Asia/Kolkata";
 
     let taskResults = null;
     let absentResults = null;
 
     if (action === "all" || action === "recurrence") {
-      taskResults = await processRecurringTasks();
+      taskResults = await processRecurringTasks({ timezone: tz });
     }
 
     if (action === "all" || action === "attendance") {

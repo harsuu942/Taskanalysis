@@ -17,11 +17,13 @@ import {
 interface RecurringTasksViewProps {
   currentUser: User | null;
   onOpenCreateModal: () => void;
+  onRefreshTasks?: () => void;
 }
 
 export default function RecurringTasksView({
   currentUser,
   onOpenCreateModal,
+  onRefreshTasks,
 }: RecurringTasksViewProps) {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,12 +58,19 @@ export default function RecurringTasksView({
     setRunningScheduler(true);
     setScheduleResult(null);
     try {
-      const res = await fetch("/api/scheduler", {
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+      const res = await fetch(`/api/scheduler?tz=${encodeURIComponent(userTimezone)}`, {
         method: "POST",
+        headers: {
+          "x-timezone": userTimezone,
+        },
       });
       const data = await res.json();
       setScheduleResult(data);
-      fetchTemplates();
+      await fetchTemplates();
+      if (onRefreshTasks) {
+        onRefreshTasks();
+      }
     } catch (e: any) {
       setScheduleResult({ success: false, error: e.message });
     } finally {

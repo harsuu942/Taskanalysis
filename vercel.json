@@ -1,3 +1,9 @@
 {
-  "buildCommand": "npm run vercel-build"
+  "buildCommand": "npm run vercel-build",
+  "crons": [
+    {
+      "path": "/api/scheduler?action=recurrence",
+      "schedule": "30 1 * * *"
+    }
+  ]
 }

@@ -89,7 +89,10 @@ export default function Home() {
   // Fetch Tasks
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch("/api/tasks");
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+      const res = await fetch("/api/tasks", {
+        headers: { "x-timezone": userTimezone },
+      });
       const data = await res.json();
       if (res.ok) {
         const list: Task[] = data.tasks || [];
@@ -103,6 +106,37 @@ export default function Home() {
       console.error("fetchTasks error:", e);
     }
   }, []);
+
+  // Auto-refresh when tab gains focus, visibility changes, or day rolls over
+  useEffect(() => {
+    let lastDateStr = new Date().toDateString();
+
+    const checkAndRefresh = () => {
+      const currentDateStr = new Date().toDateString();
+      if (document.visibilityState === "visible") {
+        lastDateStr = currentDateStr;
+        fetchTasks();
+      }
+    };
+
+    window.addEventListener("focus", checkAndRefresh);
+    document.addEventListener("visibilitychange", checkAndRefresh);
+
+    // Periodic check every 5 minutes in case the tab is kept open overnight
+    const interval = setInterval(() => {
+      const currentDateStr = new Date().toDateString();
+      if (currentDateStr !== lastDateStr) {
+        lastDateStr = currentDateStr;
+        fetchTasks();
+      }
+    }, 5 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener("focus", checkAndRefresh);
+      document.removeEventListener("visibilitychange", checkAndRefresh);
+      clearInterval(interval);
+    };
+  }, [fetchTasks]);
 
   // Fetch Clients
   const fetchClients = useCallback(async () => {
@@ -425,6 +459,7 @@ export default function Home() {
               setTaskModalInitialClientId("");
               setIsTaskModalOpen(true);
             }}
+            onRefreshTasks={fetchTasks}
           />
         )}
 
