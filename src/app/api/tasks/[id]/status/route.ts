@@ -30,18 +30,18 @@ export async function POST(
     const updateData: any = {};
     const now = new Date();
 
-    // 1. Employee updating Employee Status
+    // 1. Updating Employee Status
     if (employeeStatus) {
       updateData.employeeStatus = employeeStatus;
 
-      // When employee marks COMPLETED -> Set Admin Status to PENDING_REVIEW
-            // When employee/admin sets TODO -> Reset adminStatus and stop running timer
+      // When employee/admin sets TODO -> Reset adminStatus and stop running timer
       if (employeeStatus === "TODO") {
         updateData.adminStatus = "NOT_SUBMITTED";
         if (task.isTimerRunning) {
           updateData.isTimerRunning = false;
           updateData.currentTimerStartedAt = null;
 
+          let addedSeconds = 0;
           for (const log of task.timeLogs) {
             const start = new Date(log.startTime);
             const sessionSecs = Math.max(1, Math.floor((now.getTime() - start.getTime()) / 1000));
@@ -53,20 +53,26 @@ export async function POST(
                 durationSeconds: sessionSecs,
               },
             });
-            updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + sessionSecs;
+            addedSeconds += sessionSecs;
           }
+          updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + addedSeconds;
         }
       }
 
       if (employeeStatus === "COMPLETED") {
-        updateData.adminStatus = "PENDING_REVIEW";
+        // If Admin sets it to completed, finalize it; if Employee, submit for review
+        if (role === "ADMIN" && adminStatus === "FINAL_COMPLETED") {
+          updateData.adminStatus = "FINAL_COMPLETED";
+        } else {
+          updateData.adminStatus = role === "ADMIN" ? "FINAL_COMPLETED" : "PENDING_REVIEW";
+        }
 
         // Stop any running timer for this task
         if (task.isTimerRunning) {
           updateData.isTimerRunning = false;
           updateData.currentTimerStartedAt = null;
 
-          // Close active time log
+          let addedSeconds = 0;
           for (const log of task.timeLogs) {
             const start = new Date(log.startTime);
             const sessionSecs = Math.max(1, Math.floor((now.getTime() - start.getTime()) / 1000));
@@ -78,48 +84,66 @@ export async function POST(
                 durationSeconds: sessionSecs,
               },
             });
-            updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + sessionSecs;
+            addedSeconds += sessionSecs;
+          }
+          updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + addedSeconds;
+        }
+      }
+
+      // If marked ON_HOLD -> Pause running timer
+      if (employeeStatus === "ON_HOLD") {
+        updateData.adminStatus = "NOT_SUBMITTED";
+        if (task.isTimerRunning) {
+          updateData.isTimerRunning = false;
+          updateData.currentTimerStartedAt = null;
+
+          let addedSeconds = 0;
+          for (const log of task.timeLogs) {
+            const start = new Date(log.startTime);
+            const sessionSecs = Math.max(1, Math.floor((now.getTime() - start.getTime()) / 1000));
+            await prisma.timeLog.update({
+              where: { id: log.id },
+              data: {
+                endTime: now,
+                isRunning: false,
+                durationSeconds: sessionSecs,
+              },
+            });
+            addedSeconds += sessionSecs;
+          }
+          updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + addedSeconds;
+        }
+      }
+
+      // If marked IN_PROGRESS and timer was not running -> can start timer
+      if (employeeStatus === "IN_PROGRESS") {
+        updateData.adminStatus = "NOT_SUBMITTED";
+        if (!task.isTimerRunning) {
+          const targetUserId = userId || task.assignedToId || task.createdById;
+          if (targetUserId) {
+            const userExists = await prisma.user.findUnique({
+              where: { id: targetUserId },
+              select: { id: true },
+            });
+            if (userExists) {
+              updateData.isTimerRunning = true;
+              updateData.currentTimerStartedAt = now;
+              await prisma.timeLog.create({
+                data: {
+                  taskId: task.id,
+                  userId: userExists.id,
+                  startTime: now,
+                  isRunning: true,
+                },
+              });
+            }
           }
         }
       }
-
-      // If employee marks ON_HOLD -> Pause running timer
-      if (employeeStatus === "ON_HOLD" && task.isTimerRunning) {
-        updateData.isTimerRunning = false;
-        updateData.currentTimerStartedAt = null;
-
-        for (const log of task.timeLogs) {
-          const start = new Date(log.startTime);
-          const sessionSecs = Math.max(1, Math.floor((now.getTime() - start.getTime()) / 1000));
-          await prisma.timeLog.update({
-            where: { id: log.id },
-            data: {
-              endTime: now,
-              isRunning: false,
-              durationSeconds: sessionSecs,
-            },
-          });
-          updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + sessionSecs;
-        }
-      }
-
-      // If employee marks IN_PROGRESS and timer was not running -> can start timer if desired
-      if (employeeStatus === "IN_PROGRESS" && !task.isTimerRunning && userId) {
-        updateData.isTimerRunning = true;
-        updateData.currentTimerStartedAt = now;
-        await prisma.timeLog.create({
-          data: {
-            taskId: task.id,
-            userId: userId,
-            startTime: now,
-            isRunning: true,
-          },
-        });
-      }
     }
 
-    // 2. Admin updating Admin Status (Final Approval Workflow)
-    if (adminStatus) {
+    // 2. Admin explicitly updating Admin Status (Final Approval / Revision Workflow)
+    if (adminStatus && !employeeStatus) {
       if (role !== "ADMIN") {
         return NextResponse.json(
           { error: "Only Admin can approve or update Admin Status." },
@@ -138,6 +162,7 @@ export async function POST(
           updateData.isTimerRunning = false;
           updateData.currentTimerStartedAt = null;
 
+          let addedSeconds = 0;
           for (const log of task.timeLogs) {
             const start = new Date(log.startTime);
             const sessionSecs = Math.max(1, Math.floor((now.getTime() - start.getTime()) / 1000));
@@ -149,11 +174,11 @@ export async function POST(
                 durationSeconds: sessionSecs,
               },
             });
-            updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + sessionSecs;
+            addedSeconds += sessionSecs;
           }
+          updateData.totalDurationSeconds = (task.totalDurationSeconds || 0) + addedSeconds;
         }
       } else if (adminStatus === "REVISION_REQUESTED") {
-        // Sends back to employee
         updateData.employeeStatus = "IN_PROGRESS";
       }
     }

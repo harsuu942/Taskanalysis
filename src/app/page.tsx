@@ -249,9 +249,10 @@ export default function Home() {
           adminStatus: newAdminStatus,
         }),
       });
-      if (res.ok) {
-        await fetchTasks();
+      if (!res.ok) {
+        console.error("handleTaskStatusChange failed:", await res.text());
       }
+      await fetchTasks();
     } catch (e) {
       console.error("handleTaskStatusChange error:", e);
       await fetchTasks();

@@ -64,7 +64,7 @@ export default function TaskListView({
   const [filterPriority, setFilterPriority] = useState("ALL");
   const [filterRecurrence, setFilterRecurrence] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
-  const [filterDate, setFilterDate] = useState<TaskDateFilterOption>("ALL");
+  const [filterDate, setFilterDate] = useState<TaskDateFilterOption>("TODAY");
   const [customDate, setCustomDate] = useState<string>("");
 
   const isTaskOverdue = (task: Task) => {
@@ -81,7 +81,7 @@ export default function TaskListView({
     filterPriority !== "ALL" ||
     filterRecurrence !== "ALL" ||
     filterStatus !== "ALL" ||
-    filterDate !== "ALL";
+    filterDate !== "TODAY";
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -89,7 +89,7 @@ export default function TaskListView({
     setFilterPriority("ALL");
     setFilterRecurrence("ALL");
     setFilterStatus("ALL");
-    setFilterDate("ALL");
+    setFilterDate("TODAY");
     setCustomDate("");
   };
 
