@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { User, Task, Client, Project, ProductIdea, LearningItem } from "@/types";
-import { computeDailyProductivity } from "@/lib/productivity";
+import { computeDailyProductivity, matchesTaskDateFilter } from "@/lib/productivity";
 import Navbar from "@/components/Navbar";
 import LoginView from "@/components/LoginView";
 import TaskListView from "@/components/TaskListView";
@@ -326,7 +326,10 @@ export default function Home() {
 
   // Derived KPI Metrics
   const activeRunningTask = tasks.find((t) => t.isTimerRunning);
-  const pendingTasksCount = tasks.filter(
+  const todayTasks = useMemo(() => {
+    return tasks.filter((t) => matchesTaskDateFilter(t, "TODAY"));
+  }, [tasks]);
+  const pendingTasksCount = todayTasks.filter(
     (t) => t.employeeStatus !== "COMPLETED" && t.adminStatus !== "FINAL_COMPLETED"
   ).length;
 

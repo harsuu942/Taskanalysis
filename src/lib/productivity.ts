@@ -56,10 +56,10 @@ export function matchesTaskDateFilter(
 
   // Helper to check against single date
   const checkAgainstDay = (target: Date) => {
-    if (task.dueDate) return isSameDay(task.dueDate, target);
-    if (task.startDate) return isSameDay(task.startDate, target);
+    if (task.dueDate && isSameDay(task.dueDate, target)) return true;
+    if (task.startDate && isSameDay(task.startDate, target)) return true;
     if (task.timeLogs && task.timeLogs.some((l) => isSameDay(l.startTime, target))) return true;
-    if (!task.dueDate && !task.startDate && task.createdAt) return isSameDay(task.createdAt, target);
+    if (!task.dueDate && !task.startDate && task.createdAt && isSameDay(task.createdAt, target)) return true;
     return false;
   };
 
@@ -72,18 +72,18 @@ export function matchesTaskDateFilter(
   }
 
   if (filter === "THIS_WEEK") {
-    if (task.dueDate) return isDateInWeek(task.dueDate, now);
-    if (task.startDate) return isDateInWeek(task.startDate, now);
+    if (task.dueDate && isDateInWeek(task.dueDate, now)) return true;
+    if (task.startDate && isDateInWeek(task.startDate, now)) return true;
     if (task.timeLogs && task.timeLogs.some((l) => isDateInWeek(l.startTime, now))) return true;
-    if (!task.dueDate && !task.startDate && task.createdAt) return isDateInWeek(task.createdAt, now);
+    if (!task.dueDate && !task.startDate && task.createdAt && isDateInWeek(task.createdAt, now)) return true;
     return false;
   }
 
   if (filter === "THIS_MONTH") {
-    if (task.dueDate) return isDateInMonth(task.dueDate, now);
-    if (task.startDate) return isDateInMonth(task.startDate, now);
+    if (task.dueDate && isDateInMonth(task.dueDate, now)) return true;
+    if (task.startDate && isDateInMonth(task.startDate, now)) return true;
     if (task.timeLogs && task.timeLogs.some((l) => isDateInMonth(l.startTime, now))) return true;
-    if (!task.dueDate && !task.startDate && task.createdAt) return isDateInMonth(task.createdAt, now);
+    if (!task.dueDate && !task.startDate && task.createdAt && isDateInMonth(task.createdAt, now)) return true;
     return false;
   }
 
@@ -109,10 +109,10 @@ export function computeDailyProductivity(
 
   // Find all tasks matching this day strictly
   const dayTasks = tasks.filter((t) => {
-    if (t.dueDate) return isSameDay(t.dueDate, targetDate);
-    if (t.startDate) return isSameDay(t.startDate, targetDate);
+    if (t.dueDate && isSameDay(t.dueDate, targetDate)) return true;
+    if (t.startDate && isSameDay(t.startDate, targetDate)) return true;
     if (t.timeLogs && t.timeLogs.some((l) => isSameDay(l.startTime, targetDate))) return true;
-    if (!t.dueDate && !t.startDate && t.createdAt) return isSameDay(t.createdAt, targetDate);
+    if (!t.dueDate && !t.startDate && t.createdAt && isSameDay(t.createdAt, targetDate)) return true;
     return false;
   });
 
@@ -136,7 +136,10 @@ export function computeDailyProductivity(
           totalSecondsLogged += log.durationSeconds || 0;
         }
       }
-    } else if (t.updatedAt && isSameDay(t.updatedAt, targetDate)) {
+    } else if (
+      (t.dueDate && isSameDay(t.dueDate, targetDate)) ||
+      (t.startDate && isSameDay(t.startDate, targetDate))
+    ) {
       totalSecondsLogged += t.totalDurationSeconds || 0;
     }
   }

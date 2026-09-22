@@ -139,6 +139,36 @@ export default function TaskListView({
     0
   );
 
+  // For Kanban Board: When viewing multi-day ranges (e.g. ALL or THIS_WEEK), deduplicate daily recurring tasks by parentRecurringId so only the latest instance appears in sprint columns
+  const kanbanTasks = React.useMemo(() => {
+    if (filterDate === "TODAY" || filterDate === "YESTERDAY") {
+      return filteredTasks;
+    }
+
+    const recurringSeen = new Map<string, Task>();
+    const result: Task[] = [];
+
+    // Sort by dueDate descending, then createdAt descending so today/latest instance comes first
+    const sorted = [...filteredTasks].sort((a, b) => {
+      const timeA = new Date(a.dueDate || a.createdAt).getTime();
+      const timeB = new Date(b.dueDate || b.createdAt).getTime();
+      return timeB - timeA;
+    });
+
+    for (const t of sorted) {
+      if (t.parentRecurringId && t.recurrence === "DAILY") {
+        if (!recurringSeen.has(t.parentRecurringId)) {
+          recurringSeen.set(t.parentRecurringId, t);
+          result.push(t);
+        }
+      } else {
+        result.push(t);
+      }
+    }
+
+    return result;
+  }, [filteredTasks, filterDate]);
+
   const getRowStyle = (task: Task) => {
     if (task.adminStatus === "FINAL_COMPLETED" || task.employeeStatus === "COMPLETED") {
       return "bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-950 font-medium";
@@ -208,11 +238,11 @@ export default function TaskListView({
               onChange={(e) => setFilterDate(e.target.value as TaskDateFilterOption)}
               className="text-xs bg-transparent text-indigo-950 font-bold focus:outline-none cursor-pointer py-1"
             >
-              <option value="ALL">📅 All Dates</option>
               <option value="TODAY">⚡ Today</option>
               <option value="YESTERDAY">⏳ Yesterday</option>
               <option value="THIS_WEEK">📆 This Week</option>
               <option value="THIS_MONTH">🗓️ This Month</option>
+              <option value="ALL">📅 All Dates</option>
               <option value="CUSTOM">🎯 Custom Date...</option>
             </select>
           </div>
@@ -345,14 +375,6 @@ export default function TaskListView({
           {/* Quick Date Shortcuts */}
           <div className="flex items-center gap-1 bg-white/80 p-1 rounded-lg border border-slate-200 text-[11px]">
             <button
-              onClick={() => setFilterDate("ALL")}
-              className={`px-2 py-0.5 rounded font-bold transition ${
-                filterDate === "ALL" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              All
-            </button>
-            <button
               onClick={() => setFilterDate("TODAY")}
               className={`px-2 py-0.5 rounded font-bold transition flex items-center gap-1 ${
                 filterDate === "TODAY" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
@@ -376,6 +398,14 @@ export default function TaskListView({
               }`}
             >
               This Week
+            </button>
+            <button
+              onClick={() => setFilterDate("ALL")}
+              className={`px-2 py-0.5 rounded font-bold transition ${
+                filterDate === "ALL" ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All
             </button>
           </div>
         </div>
@@ -426,7 +456,7 @@ export default function TaskListView({
       {viewStyle === "kanban" ? (
         <div className="p-4 bg-slate-50/40">
           <KanbanBoard
-            tasks={filteredTasks}
+            tasks={kanbanTasks}
             currentUser={currentUser}
             onSelectTask={onSelectTask}
             onTimerAction={onTimerAction}
