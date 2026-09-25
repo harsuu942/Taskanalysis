@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Task, User, RecurrenceType, PriorityType, Client } from "@/types";
+import { Task, User, RecurrenceType, PriorityType, Client, LearningItem } from "@/types";
 import {
   X,
   Calendar,
@@ -16,6 +16,7 @@ import {
   Lock,
   Check,
   Search,
+  GraduationCap,
 } from "lucide-react";
 
 interface TaskModalProps {
@@ -25,6 +26,8 @@ interface TaskModalProps {
   allUsers: User[];
   clients?: Client[];
   initialClientId?: string;
+  learningItems?: LearningItem[];
+  initialLearningItemId?: string;
   taskToEdit?: Task | null;
   onTaskCreated: () => void;
   onRefreshClients?: () => void;
@@ -37,6 +40,8 @@ export default function TaskModal({
   allUsers,
   clients = [],
   initialClientId = "",
+  learningItems = [],
+  initialLearningItemId = "",
   taskToEdit = null,
   onTaskCreated,
   onRefreshClients,
@@ -51,6 +56,7 @@ export default function TaskModal({
   const [priority, setPriority] = useState<PriorityType>("MEDIUM");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [learningItemId, setLearningItemId] = useState<string>("");
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [billableHours, setBillableHours] = useState<string>("0");
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().slice(0, 16));
@@ -77,6 +83,7 @@ export default function TaskModal({
       setMonthlyDay(taskToEdit.monthlyDay || 1);
       setWeeklyDay(taskToEdit.weeklyDay || "Monday");
       setPriority(taskToEdit.priority || "MEDIUM");
+      setLearningItemId(taskToEdit.learningItemId || "");
 
       // Multi-assignees
       const aIds = taskToEdit.assignees?.map((a) => a.userId) || [];
@@ -112,6 +119,7 @@ export default function TaskModal({
     } else {
       setSelectedClientIds(initialClientId ? [initialClientId] : []);
       setSelectedAssigneeIds(isEmployee && currentUser ? [currentUser.id] : []);
+      setLearningItemId(initialLearningItemId || "");
       setBillableHours("0");
       setTitle("");
       setDescription("");
@@ -123,7 +131,7 @@ export default function TaskModal({
       setDueDate(new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().slice(0, 16));
       setError(null);
     }
-  }, [taskToEdit, initialClientId, isEmployee, currentUser, isOpen]);
+  }, [taskToEdit, initialClientId, initialLearningItemId, isEmployee, currentUser, isOpen]);
 
   // Listen for Escape key to close
   useEffect(() => {
@@ -220,6 +228,7 @@ export default function TaskModal({
         assigneeIds: finalAssigneeIds,
         clientId: selectedClientIds.length > 0 ? selectedClientIds[0] : null,
         clientIds: selectedClientIds,
+        learningItemId: learningItemId || null,
         billableHours: parseFloat(billableHours) || 0,
         startDate: startDate ? new Date(startDate) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -264,12 +273,25 @@ export default function TaskModal({
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/70">
           <div>
-            <h3 className="text-base font-bold text-slate-900">
-              {taskToEdit ? `Edit Task: ${taskToEdit.title}` : "Create New Task"}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900">
+                {taskToEdit
+                  ? taskToEdit.isRecurringTemplate
+                    ? `Edit Recurring Schedule: ${taskToEdit.title}`
+                    : `Edit Task: ${taskToEdit.title}`
+                  : "Create New Task"}
+              </h3>
+              {taskToEdit?.isRecurringTemplate && (
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                  Recurring Template
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {taskToEdit
-                ? "Update task details, schedule, priority, and assignments"
+                ? taskToEdit.isRecurringTemplate
+                  ? "Updates to this template apply to upcoming auto-generated recurring tasks"
+                  : "Update task details, schedule, priority, and assignments"
                 : isEmployee
                 ? "Create a task for yourself with schedule, recurrence, and client"
                 : "Specify schedule, recurrence, assignee, client, and priority"}
@@ -450,6 +472,42 @@ export default function TaskModal({
             </div>
           </div>
 
+          {/* Learning Topic Link (Subject/Skill Alignment) */}
+          <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/80 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Link Learning Topic / Skill (Optional)</span>
+              </label>
+              {learningItemId && (
+                <button
+                  type="button"
+                  onClick={() => setLearningItemId("")}
+                  className="text-[10px] text-slate-400 hover:text-rose-600 font-medium cursor-pointer"
+                >
+                  Clear Link
+                </button>
+              )}
+            </div>
+            <select
+              value={learningItemId}
+              onChange={(e) => setLearningItemId(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs bg-white border border-emerald-300 rounded-lg outline-none font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="">-- No Linked Learning Topic --</option>
+              {learningItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  [{item.subject}] {item.title} ({item.status.replace("_", " ")})
+                </option>
+              ))}
+            </select>
+            {learningItemId && (
+              <p className="text-[10px] text-emerald-700 font-medium">
+                💡 Completed practice and logged hours on this task will track against this learning topic.
+              </p>
+            )}
+          </div>
+
           {/* Description */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
@@ -483,6 +541,7 @@ export default function TaskModal({
                 >
                   <option value="ONE_TIME">One-time Task</option>
                   <option value="DAILY">Daily (Auto-appears at 7:00 AM)</option>
+                  <option value="WEEKEND">Weekend (Saturday &amp; Sunday at 7:00 AM)</option>
                   <option value="WEEKLY">Weekly</option>
                   <option value="MONTHLY">Monthly (Specific Day of Month)</option>
                   <option value="QUARTERLY">Quarterly (Every 3 Months)</option>
@@ -557,7 +616,13 @@ export default function TaskModal({
 
             {recurrence === "DAILY" && (
               <p className="text-[11px] text-blue-700 bg-blue-50/70 p-2 rounded border border-blue-100">
-                ✨ <strong>Daily Automation:</strong> This task will automatically appear on the assigned employee's task list every morning at 7:00 AM.
+                ✨ <strong>Daily Automation:</strong> This task will automatically appear on the assigned employee&apos;s task list every morning at 7:00 AM.
+              </p>
+            )}
+
+            {recurrence === "WEEKEND" && (
+              <p className="text-[11px] text-amber-800 bg-amber-50/70 p-2 rounded border border-amber-200">
+                ✨ <strong>Weekend Automation:</strong> This task will automatically appear on the assigned employee&apos;s task list every Saturday and Sunday morning at 7:00 AM.
               </p>
             )}
 

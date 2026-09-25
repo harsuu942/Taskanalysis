@@ -34,7 +34,7 @@ model Task {
   id                   String     @id @default(cuid())
   title                String
   description          String?
-  recurrence           String     @default("ONE_TIME") // ONE_TIME | DAILY | WEEKLY | MONTHLY | QUARTERLY | HALF_YEARLY | YEARLY
+  recurrence           String     @default("ONE_TIME") // ONE_TIME | DAILY | WEEKEND | WEEKLY | MONTHLY | QUARTERLY | HALF_YEARLY | YEARLY
   monthlyDay           Int?       // 1 - 31 (day of month for monthly & quarterly tasks)
   weeklyDay            String?    // Monday, Tuesday, Wednesday, etc. for weekly tasks
   startDate            DateTime?
@@ -66,6 +66,9 @@ model Task {
 
   projectId            String?
   project              Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  learningItemId       String?
+  learningItem         LearningItem?  @relation(fields: [learningItemId], references: [id], onDelete: SetNull)
 
   createdById          String
   createdBy            User       @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
@@ -261,6 +264,7 @@ model ProductIdea {
   updatedAt        DateTime                @updatedAt
 
   phases           ProductExecutionPhase[]
+  learningItems    LearningItem[]
 }
 
 model ProductExecutionPhase {
@@ -279,15 +283,18 @@ model ProductExecutionPhase {
 }
 
 model LearningItem {
-  id           String   @id @default(cuid())
-  title        String
-  subject      String   @default("AI") // AI | Flutter | Backend | Frontend | System Design | DevOps | etc.
-  url          String?
-  resourceType String   @default("ARTICLE") // ARTICLE | VIDEO | REPO | COURSE | DOCS | BOOK
-  status       String   @default("TO_LEARN") // TO_LEARN | IN_PROGRESS | COMPLETED | BOOKMARKED
-  notes        String?
-  isFavorite   Boolean  @default(false)
-  tags         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String       @id @default(cuid())
+  title         String
+  subject       String       @default("AI") // AI | Flutter | Backend | Frontend | System Design | DevOps | etc.
+  url           String?
+  resourceType  String       @default("ARTICLE") // ARTICLE | VIDEO | REPO | COURSE | DOCS | BOOK
+  status        String       @default("TO_LEARN") // TO_LEARN | IN_PROGRESS | COMPLETED | BOOKMARKED
+  notes         String?
+  isFavorite    Boolean      @default(false)
+  tags          String?
+  productIdeaId String?
+  productIdea   ProductIdea? @relation(fields: [productIdeaId], references: [id], onDelete: SetNull)
+  tasks         Task[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }

@@ -104,6 +104,7 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
         assignedTo: true,
         taskClients: true,
         assignees: true,
+        learningItem: true,
       },
     });
 
@@ -169,6 +170,10 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
 
       if (tpl.recurrence === "DAILY") {
         shouldGenerateToday = true;
+      } else if (tpl.recurrence === "WEEKEND") {
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          shouldGenerateToday = true;
+        }
       } else if (tpl.recurrence === "WEEKLY") {
         const dayMap: Record<string, number> = {
           sunday: 0,
@@ -252,7 +257,7 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
         );
 
         let dueDate: Date;
-        if (tpl.recurrence === "DAILY") {
+        if (tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") {
           dueDate = localToUtcDate(
             localNow.year,
             localNow.month,
@@ -311,6 +316,7 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
             adminStatus: "NOT_SUBMITTED",
             assignedToId: tpl.assignedToId,
             clientId: tpl.clientId,
+            learningItemId: tpl.learningItemId,
             billableHours: tpl.billableHours,
             createdById: tpl.createdById,
             parentRecurringId: tpl.id,

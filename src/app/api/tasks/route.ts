@@ -95,6 +95,7 @@ export async function GET(request: Request) {
         assignedTo: true,
         createdBy: true,
         client: true,
+        learningItem: true,
         taskClients: {
           include: {
             client: true,
@@ -139,6 +140,7 @@ export async function POST(request: Request) {
       createdById,
       clientId,
       clientIds,
+      learningItemId,
       billableHours = 0,
     } = body;
 
@@ -201,6 +203,7 @@ export async function POST(request: Request) {
           adminStatus: "NOT_SUBMITTED",
           assignedToId: effectiveAssignedToId,
           clientId: effectiveClientId,
+          learningItemId: learningItemId || null,
           billableHours: numericBillableHours,
           createdById,
           isRecurringTemplate: true,
@@ -231,6 +234,7 @@ export async function POST(request: Request) {
         adminStatus: "NOT_SUBMITTED",
         assignedToId: effectiveAssignedToId,
         clientId: effectiveClientId,
+        learningItemId: learningItemId || null,
         billableHours: numericBillableHours,
         createdById,
         isRecurringTemplate: false,
@@ -246,6 +250,7 @@ export async function POST(request: Request) {
         assignedTo: true,
         createdBy: true,
         client: true,
+        learningItem: true,
         taskClients: {
           include: {
             client: true,

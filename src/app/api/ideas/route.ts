@@ -26,6 +26,17 @@ export async function GET(request: Request) {
         phases: {
           orderBy: { order: "asc" },
         },
+        learningItems: {
+          include: {
+            tasks: {
+              select: {
+                id: true,
+                title: true,
+                employeeStatus: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -86,6 +97,17 @@ export async function POST(request: Request) {
       include: {
         phases: {
           orderBy: { order: "asc" },
+        },
+        learningItems: {
+          include: {
+            tasks: {
+              select: {
+                id: true,
+                title: true,
+                employeeStatus: true,
+              },
+            },
+          },
         },
       },
     });
@@ -158,6 +180,17 @@ export async function PUT(request: Request) {
       include: {
         phases: {
           orderBy: { order: "asc" },
+        },
+        learningItems: {
+          include: {
+            tasks: {
+              select: {
+                id: true,
+                title: true,
+                employeeStatus: true,
+              },
+            },
+          },
         },
       },
     });

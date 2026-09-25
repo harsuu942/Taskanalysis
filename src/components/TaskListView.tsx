@@ -27,6 +27,7 @@ import {
   CalendarDays,
   TrendingUp,
   Zap,
+  GraduationCap,
 } from "lucide-react";
 import { formatDuration } from "@/lib/formatters";
 import { TaskDateFilterOption, matchesTaskDateFilter } from "@/lib/productivity";
@@ -156,7 +157,7 @@ export default function TaskListView({
     });
 
     for (const t of sorted) {
-      if (t.parentRecurringId && t.recurrence === "DAILY") {
+      if (t.parentRecurringId && (t.recurrence === "DAILY" || t.recurrence === "WEEKEND")) {
         if (!recurringSeen.has(t.parentRecurringId)) {
           recurringSeen.set(t.parentRecurringId, t);
           result.push(t);
@@ -505,6 +506,14 @@ export default function TaskListView({
                         {task.description && (
                           <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
                             {task.description}
+                          </div>
+                        )}
+                        {task.learningItem && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
+                              <GraduationCap className="w-3 h-3 text-emerald-600" />
+                              <span>[{task.learningItem.subject}] {task.learningItem.title}</span>
+                            </span>
                           </div>
                         )}
                       </td>

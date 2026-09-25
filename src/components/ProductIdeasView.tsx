@@ -29,6 +29,7 @@ import {
   CheckSquare,
   Square,
   Milestone,
+  GraduationCap,
 } from "lucide-react";
 
 interface ProductIdeasViewProps {
@@ -565,6 +566,50 @@ export default function ProductIdeasView({
                     </div>
                   )}
                 </div>
+
+                {/* Required Learning & Tech Skills Section */}
+                {idea.learningItems && idea.learningItems.length > 0 && (
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <GraduationCap className="w-4 h-4 text-emerald-600" />
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                        Required Learning &amp; Tech Skills ({idea.learningItems.length})
+                      </h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {idea.learningItems.map((li) => {
+                        const isMastered = li.status === "COMPLETED";
+                        const isInProgress = li.status === "IN_PROGRESS";
+                        return (
+                          <div
+                            key={li.id}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                              isMastered
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                                : isInProgress
+                                ? "bg-blue-50 border-blue-200 text-blue-900"
+                                : "bg-slate-50 border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            <span className="text-[10px] font-bold uppercase text-slate-400">[{li.subject}]</span>
+                            <span>{li.title}</span>
+                            <span
+                              className={`text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold ml-1 ${
+                                isMastered
+                                  ? "bg-emerald-200 text-emerald-950"
+                                  : isInProgress
+                                  ? "bg-blue-200 text-blue-950"
+                                  : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {li.status.replace("_", " ")}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })

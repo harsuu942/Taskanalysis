@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { LearningItem, LearningResourceType, LearningStatus } from "@/types";
+import { LearningItem, LearningResourceType, LearningStatus, ProductIdea } from "@/types";
 import {
   BookOpen,
   Plus,
@@ -25,18 +25,24 @@ import {
   Copy,
   AlertCircle,
   X,
+  Lightbulb,
+  CheckSquare,
 } from "lucide-react";
 
 interface LearningHubViewProps {
   items: LearningItem[];
+  ideas?: ProductIdea[];
   onRefresh: () => void;
   onDeleteItem?: (id: string) => Promise<void> | void;
+  onCreateTaskForTopic?: (item: LearningItem) => void;
 }
 
 export default function LearningHubView({
   items,
+  ideas = [],
   onRefresh,
   onDeleteItem,
+  onCreateTaskForTopic,
 }: LearningHubViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("ALL");
@@ -57,6 +63,7 @@ export default function LearningHubView({
   const [formNotes, setFormNotes] = useState("");
   const [formIsFavorite, setFormIsFavorite] = useState(false);
   const [formTags, setFormTags] = useState("");
+  const [formProductIdeaId, setFormProductIdeaId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -82,6 +89,7 @@ export default function LearningHubView({
     setFormNotes("");
     setFormIsFavorite(false);
     setFormTags("");
+    setFormProductIdeaId("");
     setError(null);
     setIsModalOpen(true);
   };
@@ -102,6 +110,7 @@ export default function LearningHubView({
     setFormNotes(item.notes || "");
     setFormIsFavorite(Boolean(item.isFavorite));
     setFormTags(item.tags || "");
+    setFormProductIdeaId(item.productIdeaId || "");
     setError(null);
     setIsModalOpen(true);
   };
@@ -129,6 +138,7 @@ export default function LearningHubView({
         notes: formNotes.trim() || null,
         isFavorite: formIsFavorite,
         tags: formTags.trim() || null,
+        productIdeaId: formProductIdeaId || null,
       };
 
       const url = "/api/learning";
@@ -490,10 +500,31 @@ export default function LearningHubView({
                     ))}
                   </div>
                 )}
+
+                {/* Linked Product Roadmap and Linked Tasks badges */}
+                {(item.productIdea || (item.tasks && item.tasks.length > 0)) && (
+                  <div className="flex items-center flex-wrap gap-1.5 pt-1">
+                    {item.productIdea && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                        <span>Roadmap: {item.productIdea.title}</span>
+                      </span>
+                    )}
+                    {item.tasks && item.tasks.length > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-900 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                        <CheckSquare className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                        <span>{item.tasks.length} Task{item.tasks.length > 1 ? "s" : ""}</span>
+                        <span className="text-[10px] text-blue-700 font-bold ml-0.5">
+                          ({item.tasks.filter((t: any) => t.employeeStatus === "COMPLETED").length} done)
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Footer Controls: Status Dropdown & Edit/Delete */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
                 <select
                   value={item.status}
                   onChange={(e) => handleStatusChange(item, e.target.value as LearningStatus)}
@@ -512,16 +543,27 @@ export default function LearningHubView({
                 </select>
 
                 <div className="flex items-center space-x-1.5">
+                  {onCreateTaskForTopic && (
+                    <button
+                      type="button"
+                      onClick={() => onCreateTaskForTopic(item)}
+                      className="px-2 py-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition flex items-center gap-1 cursor-pointer"
+                      title="Create a new task linked to this learning topic"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Task</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => handleOpenEditModal(item)}
-                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                     title="Edit resource"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteItem(item.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                     title="Delete resource"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -681,6 +723,31 @@ export default function LearningHubView({
                     </span>
                   </label>
                 </div>
+              </div>
+
+              {/* Linked Product Roadmap Idea (Optional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Linked Product Roadmap Idea (Optional)</span>
+                </label>
+                <select
+                  value={formProductIdeaId}
+                  onChange={(e) => setFormProductIdeaId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-800"
+                >
+                  <option value="">-- No Linked Product Idea (General Topic) --</option>
+                  {ideas.map((idea) => (
+                    <option key={idea.id} value={idea.id}>
+                      [{idea.category}] {idea.title} ({idea.status.replace("_", " ")})
+                    </option>
+                  ))}
+                </select>
+                {formProductIdeaId && (
+                  <p className="text-[10px] text-emerald-700 mt-1 font-medium">
+                    💡 This topic is marked as required technical learning for this product roadmap.
+                  </p>
+                )}
               </div>
 
               {/* Tags */}

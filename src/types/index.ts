@@ -3,6 +3,7 @@ export type Role = "ADMIN" | "EMPLOYEE";
 export type RecurrenceType =
   | "ONE_TIME"
   | "DAILY"
+  | "WEEKEND"
   | "WEEKLY"
   | "MONTHLY"
   | "QUARTERLY"
@@ -109,6 +110,8 @@ export interface Task {
   taskClients?: TaskClientItem[];
   projectId?: string | null;
   project?: Project | null;
+  learningItemId?: string | null;
+  learningItem?: LearningItem | null;
   createdById: string;
   createdBy?: User | null;
   timeLogs?: TimeLog[];
@@ -316,6 +319,7 @@ export interface ProductIdea {
   createdAt: string;
   updatedAt: string;
   phases?: ProductExecutionPhase[];
+  learningItems?: LearningItem[];
 }
 
 export type LearningResourceType = "ARTICLE" | "VIDEO" | "REPO" | "COURSE" | "DOCS" | "BOOK";
@@ -331,6 +335,9 @@ export interface LearningItem {
   notes?: string | null;
   isFavorite: boolean;
   tags?: string | null;
+  productIdeaId?: string | null;
+  productIdea?: ProductIdea | null;
+  tasks?: Task[];
   createdAt: string;
   updatedAt: string;
 }

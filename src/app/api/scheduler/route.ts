@@ -7,7 +7,7 @@ export async function GET() {
     // List all recurring templates
     const templates = await prisma.task.findMany({
       where: { isRecurringTemplate: true },
-      include: { assignedTo: true, createdBy: true, client: true },
+      include: { assignedTo: true, createdBy: true, client: true, learningItem: true },
       orderBy: { createdAt: "desc" },
     });
 

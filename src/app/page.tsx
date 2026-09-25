@@ -71,6 +71,7 @@ export default function Home() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [taskModalInitialClientId, setTaskModalInitialClientId] = useState<string>("");
+  const [taskModalInitialLearningItemId, setTaskModalInitialLearningItemId] = useState<string>("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const selectedTaskIdRef = useRef<string | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -388,6 +389,7 @@ export default function Home() {
         onOpenTaskModal={() => {
           setTaskToEdit(null);
           setTaskModalInitialClientId("");
+          setTaskModalInitialLearningItemId("");
           setIsTaskModalOpen(true);
         }}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
@@ -412,6 +414,7 @@ export default function Home() {
             onAddNewTask={() => {
               setTaskToEdit(null);
               setTaskModalInitialClientId("");
+              setTaskModalInitialLearningItemId("");
               setIsTaskModalOpen(true);
             }}
             onEditTask={(task) => {
@@ -437,6 +440,7 @@ export default function Home() {
             onOpenCreateTaskForClient={(clientId) => {
               setTaskToEdit(null);
               setTaskModalInitialClientId(clientId);
+              setTaskModalInitialLearningItemId("");
               setIsTaskModalOpen(true);
             }}
           />
@@ -461,8 +465,14 @@ export default function Home() {
             onOpenCreateModal={() => {
               setTaskToEdit(null);
               setTaskModalInitialClientId("");
+              setTaskModalInitialLearningItemId("");
               setIsTaskModalOpen(true);
             }}
+            onEditTemplate={(tpl) => {
+              setTaskToEdit(tpl);
+              setIsTaskModalOpen(true);
+            }}
+            onDeleteTemplate={handleDeleteTask}
             onRefreshTasks={fetchTasks}
           />
         )}
@@ -480,8 +490,15 @@ export default function Home() {
         {activeTab === "learning" && (
           <LearningHubView
             items={learningItems}
+            ideas={ideas}
             onRefresh={() => fetchLearning()}
             onDeleteItem={handleDeleteLearningItem}
+            onCreateTaskForTopic={(item) => {
+              setTaskToEdit(null);
+              setTaskModalInitialClientId("");
+              setTaskModalInitialLearningItemId(item.id);
+              setIsTaskModalOpen(true);
+            }}
           />
         )}
       </main>
@@ -494,15 +511,19 @@ export default function Home() {
           setIsTaskModalOpen(false);
           setTaskToEdit(null);
           setTaskModalInitialClientId("");
+          setTaskModalInitialLearningItemId("");
         }}
         currentUser={currentUser}
         allUsers={[currentUser]}
         clients={clients}
         initialClientId={taskModalInitialClientId}
+        learningItems={learningItems}
+        initialLearningItemId={taskModalInitialLearningItemId}
         onTaskCreated={() => {
           setTaskToEdit(null);
           fetchTasks();
           fetchClients();
+          fetchLearning();
         }}
         onRefreshClients={() => fetchClients()}
       />
@@ -514,12 +535,14 @@ export default function Home() {
         currentUser={currentUser}
         allUsers={[currentUser]}
         clients={clients}
+        learningItems={learningItems}
         onTimerAction={handleTimerAction}
         onAdminApprove={handleAdminApprove}
         onAdminRevision={() => Promise.resolve()}
         onTaskUpdated={() => {
           fetchTasks();
           fetchClients();
+          fetchLearning();
         }}
         onDeleteTask={handleDeleteTask}
         onEditTask={(task) => {

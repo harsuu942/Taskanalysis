@@ -12,18 +12,25 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  Edit3,
+  Trash2,
+  GraduationCap,
 } from "lucide-react";
 
 interface RecurringTasksViewProps {
   currentUser: User | null;
   onOpenCreateModal: () => void;
   onRefreshTasks?: () => void;
+  onEditTemplate?: (template: Task) => void;
+  onDeleteTemplate?: (templateId: string) => Promise<void>;
 }
 
 export default function RecurringTasksView({
   currentUser,
   onOpenCreateModal,
   onRefreshTasks,
+  onEditTemplate,
+  onDeleteTemplate,
 }: RecurringTasksViewProps) {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +120,7 @@ export default function RecurringTasksView({
   });
 
   const dailyCount = userTemplates.filter((t) => t.recurrence === "DAILY").length;
+  const weekendCount = userTemplates.filter((t) => t.recurrence === "WEEKEND").length;
   const monthlyCount = userTemplates.filter((t) => t.recurrence === "MONTHLY").length;
   const extendedCount = userTemplates.filter((t) =>
     ["WEEKLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"].includes(t.recurrence)
@@ -133,7 +141,7 @@ export default function RecurringTasksView({
               </h3>
               <p className="text-xs text-indigo-200 mt-0.5">
                 {isAdmin
-                  ? "Automated morning dispatch at 7:00 AM, day-specific monthly schedules, and compliance cycles"
+                  ? "Automated morning dispatch at 7:00 AM, weekend schedules, day-specific monthly schedules, and compliance cycles"
                   : "Your personal recurring tasks automatically spawned into your task list every morning at 7:00 AM"}
               </p>
             </div>
@@ -163,41 +171,50 @@ export default function RecurringTasksView({
 
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Templates</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Templates</span>
             <RotateCw className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-2xl font-extrabold text-slate-900 mt-1">{templates.length}</div>
           <div className="text-[10px] text-slate-400 mt-0.5">Active automations</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Daily 7:00 AM</span>
+            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Daily 7:00 AM</span>
             <Clock className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-extrabold text-emerald-600 mt-1">{dailyCount}</div>
           <div className="text-[10px] text-slate-400 mt-0.5">Morning list spawns</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Monthly Day-Based</span>
+            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Weekend (Sat/Sun)</span>
+            <Clock className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-2xl font-extrabold text-amber-600 mt-1">{weekendCount}</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Weekend dispatch</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Monthly</span>
             <Calendar className="w-4 h-4 text-blue-500" />
           </div>
           <div className="text-2xl font-extrabold text-blue-600 mt-1">{monthlyCount}</div>
           <div className="text-[10px] text-slate-400 mt-0.5">Assigned on chosen day</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Extended</span>
+            <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Extended</span>
             <RotateCw className="w-4 h-4 text-indigo-500" />
           </div>
           <div className="text-2xl font-extrabold text-indigo-600 mt-1">{extendedCount}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Weekly, Quarterly, Yearly</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Weekly, Quarterly, etc.</div>
         </div>
       </div>
 
@@ -260,6 +277,7 @@ export default function RecurringTasksView({
               >
                 <option value="ALL">All Frequencies</option>
                 <option value="DAILY">Daily (7:00 AM)</option>
+                <option value="WEEKEND">Weekend (Sat &amp; Sun)</option>
                 <option value="WEEKLY">Weekly</option>
                 <option value="MONTHLY">Monthly</option>
                 <option value="QUARTERLY">Quarterly</option>
@@ -300,32 +318,43 @@ export default function RecurringTasksView({
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Template Title & Client</th>
+                <th className="py-3 px-4">Template Title &amp; Details</th>
                 <th className="py-3 px-4">Frequency</th>
                 <th className="py-3 px-4">Schedule / Rule</th>
                 <th className="py-3 px-4">Priority</th>
                 <th className="py-3 px-4">Assigned Staff</th>
                 <th className="py-3 px-4 text-right">Last Generated</th>
+                <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredTemplates.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     {isAdmin
-                      ? "No recurring templates match your search filter. Click \"+ Add Schedule\" to configure one."
-                      : "No recurring task schedules found for you. Click \"+ Add Schedule\" to create a recurring task."}
+                      ? "No recurring templates match your search filter. Click \"+ Add Task\" to configure one."
+                      : "No recurring task schedules found for you. Click \"+ Add Task\" to create a recurring task."}
                   </td>
                 </tr>
               ) : (
                 filteredTemplates.map((tpl) => (
-                  <tr key={tpl.id} className="hover:bg-slate-50 transition">
+                  <tr
+                    key={tpl.id}
+                    onClick={() => onEditTemplate && onEditTemplate(tpl)}
+                    className={`transition ${onEditTemplate ? "hover:bg-indigo-50/40 cursor-pointer" : "hover:bg-slate-50"}`}
+                  >
                     <td className="py-3.5 px-4 font-semibold text-slate-800">
                       <div className="font-extrabold text-slate-900 text-xs">{tpl.title}</div>
-                      <div className="flex items-center space-x-2 mt-0.5">
+                      <div className="flex items-center flex-wrap gap-1.5 mt-1">
                         {tpl.client && (
                           <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
                             🏢 {tpl.client.company || tpl.client.name}
+                          </span>
+                        )}
+                        {tpl.learningItem && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            <GraduationCap className="w-3 h-3 text-emerald-600" />
+                            <span>[{tpl.learningItem.subject}] {tpl.learningItem.title}</span>
                           </span>
                         )}
                         {tpl.description && (
@@ -341,6 +370,10 @@ export default function RecurringTasksView({
                         <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full text-[10px] border border-emerald-200">
                           ● Daily (7:00 AM)
                         </span>
+                      ) : tpl.recurrence === "WEEKEND" ? (
+                        <span className="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full text-[10px] border border-amber-300">
+                          ● Weekend (Sat &amp; Sun)
+                        </span>
                       ) : tpl.recurrence === "MONTHLY" ? (
                         <span className="bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-full text-[10px] border border-blue-200">
                           ● Monthly (Day {tpl.monthlyDay || 1})
@@ -354,7 +387,7 @@ export default function RecurringTasksView({
                           ● Quarterly (Day {tpl.monthlyDay || 1})
                         </span>
                       ) : (
-                        <span className="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full text-[10px] border border-amber-200">
+                        <span className="bg-slate-100 text-slate-800 font-bold px-2.5 py-1 rounded-full text-[10px] border border-slate-200">
                           ● {tpl.recurrence}
                         </span>
                       )}
@@ -365,6 +398,8 @@ export default function RecurringTasksView({
                         <span>Day {tpl.monthlyDay} of every month</span>
                       ) : tpl.recurrence === "DAILY" ? (
                         <span>Every morning at 7:00 AM</span>
+                      ) : tpl.recurrence === "WEEKEND" ? (
+                        <span>Every Saturday &amp; Sunday at 7:00 AM</span>
                       ) : tpl.recurrence === "WEEKLY" ? (
                         <span>Every week on {tpl.weeklyDay || "Monday"}</span>
                       ) : tpl.recurrence === "QUARTERLY" ? (
@@ -439,6 +474,37 @@ export default function RecurringTasksView({
                       ) : (
                         <span className="text-slate-400 italic">Pending First Cycle</span>
                       )}
+                    </td>
+
+                    {/* Actions Column */}
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex items-center justify-center space-x-1" onClick={(e) => e.stopPropagation()}>
+                        {onEditTemplate && (
+                          <button
+                            type="button"
+                            onClick={() => onEditTemplate(tpl)}
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                            title="Edit recurring template schedule"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeleteTemplate && (isAdmin || tpl.createdById === currentUser?.id) && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (confirm(`Are you sure you want to delete recurring schedule "${tpl.title}"? Future tasks will no longer be generated.`)) {
+                                await onDeleteTemplate(tpl.id);
+                                fetchTemplates();
+                              }
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="Delete recurring template schedule"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

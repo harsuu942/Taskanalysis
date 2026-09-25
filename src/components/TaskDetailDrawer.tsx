@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Task, User, TimeLog, Client, PriorityType, RecurrenceType } from "@/types";
+import { Task, User, TimeLog, Client, PriorityType, RecurrenceType, LearningItem } from "@/types";
 import {
   X,
   Play,
@@ -25,6 +25,7 @@ import {
   Maximize2,
   Plus,
   Users,
+  GraduationCap,
 } from "lucide-react";
 import { formatDuration } from "@/lib/formatters";
 
@@ -34,6 +35,7 @@ interface TaskDetailDrawerProps {
   currentUser: User | null;
   allUsers: User[];
   clients?: Client[];
+  learningItems?: LearningItem[];
   onTimerAction: (taskId: string, action: "start" | "hold" | "resume" | "stop" | "complete") => Promise<void>;
   onAdminApprove: (taskId: string) => Promise<void>;
   onAdminRevision: (taskId: string) => Promise<void>;
@@ -48,6 +50,7 @@ export default function TaskDetailDrawer({
   currentUser,
   allUsers,
   clients = [],
+  learningItems = [],
   onTimerAction,
   onAdminApprove,
   onAdminRevision,
@@ -79,6 +82,7 @@ export default function TaskDetailDrawer({
   const [editDueDate, setEditDueDate] = useState("");
   const [editAssignedToId, setEditAssignedToId] = useState("");
   const [editClientId, setEditClientId] = useState("");
+  const [editLearningItemId, setEditLearningItemId] = useState("");
 
   // Sync edit form fields when task changes
   useEffect(() => {
@@ -93,6 +97,7 @@ export default function TaskDetailDrawer({
       setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : "");
       setEditAssignedToId(task.assignedToId || "");
       setEditClientId(task.clientId || "");
+      setEditLearningItemId(task.learningItemId || "");
       setIsEditing(false);
       setEditError(null);
     }
@@ -199,6 +204,7 @@ export default function TaskDetailDrawer({
           dueDate: editDueDate ? new Date(editDueDate) : null,
           assignedToId: isEmployee ? (task.assignedToId || currentUser?.id) : (editAssignedToId || null),
           clientId: editClientId || null,
+          learningItemId: editLearningItemId || null,
         }),
       });
 
@@ -268,7 +274,11 @@ export default function TaskDetailDrawer({
             <span className="text-slate-300">&bull;</span>
             <span className="bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border border-indigo-200">
               <RotateCw className="w-3 h-3" />
-              {task.recurrence === "MONTHLY" && task.monthlyDay ? `Monthly (Day ${task.monthlyDay})` : task.recurrence}
+              {task.recurrence === "MONTHLY" && task.monthlyDay
+                ? `Monthly (Day ${task.monthlyDay})`
+                : task.recurrence === "WEEKEND"
+                ? "Weekend (Sat & Sun)"
+                : task.recurrence}
             </span>
 
             {/* Creator Badge */}
@@ -464,6 +474,7 @@ export default function TaskDetailDrawer({
                   >
                     <option value="ONE_TIME">One Time</option>
                     <option value="DAILY">Daily</option>
+                    <option value="WEEKEND">Weekend (Sat &amp; Sun)</option>
                     <option value="WEEKLY">Weekly</option>
                     <option value="MONTHLY">Monthly</option>
                     <option value="QUARTERLY">Quarterly</option>
@@ -557,6 +568,26 @@ export default function TaskDetailDrawer({
                 )}
               </div>
 
+              {/* Learning Topic Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-700 mb-1 flex items-center gap-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Learning Topic / Skill</span>
+                </label>
+                <select
+                  value={editLearningItemId}
+                  onChange={(e) => setEditLearningItemId(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="">-- No Linked Learning Topic --</option>
+                  {learningItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      [{item.subject}] {item.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
@@ -584,10 +615,11 @@ export default function TaskDetailDrawer({
                 </h2>
               </div>
 
-              {/* Client Info Pill (Supports Multiple Clients) */}
-              {task.taskClients && task.taskClients.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {task.taskClients.map((tc) => (
+              {/* Client and Learning Topic Pills */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {/* Client Info Pill (Supports Multiple Clients) */}
+                {task.taskClients && task.taskClients.length > 0 ? (
+                  task.taskClients.map((tc) => (
                     <div
                       key={tc.id}
                       className="inline-flex items-center space-x-1.5 bg-cyan-50 border border-cyan-200 px-2.5 py-1 rounded-lg text-xs text-cyan-950 font-semibold shadow-2xs"
@@ -595,26 +627,34 @@ export default function TaskDetailDrawer({
                       <Building2 className="w-3.5 h-3.5 text-cyan-700 flex-shrink-0" />
                       <span>{tc.client?.company ? `${tc.client.company} (${tc.client?.name || ""})` : tc.client?.name || "Client"}</span>
                     </div>
-                  ))}
-                </div>
-              ) : task.client ? (
-                <div className="mt-2 inline-flex items-center space-x-2 bg-cyan-50 border border-cyan-200 px-3 py-1.5 rounded-xl text-xs text-cyan-900 font-semibold shadow-2xs">
-                  <Building2 className="w-4 h-4 text-cyan-700 flex-shrink-0" />
-                  <div>
-                    <span className="font-extrabold">{task.client.company || task.client.name}</span>
-                    {task.client.company && (
-                      <span className="text-cyan-700 text-[11px] font-normal ml-1">
-                        (Contact: {task.client.name})
-                      </span>
-                    )}
+                  ))
+                ) : task.client ? (
+                  <div className="inline-flex items-center space-x-2 bg-cyan-50 border border-cyan-200 px-3 py-1.5 rounded-xl text-xs text-cyan-900 font-semibold shadow-2xs">
+                    <Building2 className="w-4 h-4 text-cyan-700 flex-shrink-0" />
+                    <div>
+                      <span className="font-extrabold">{task.client.company || task.client.name}</span>
+                      {task.client.company && (
+                        <span className="text-cyan-700 text-[11px] font-normal ml-1">
+                          (Contact: {task.client.name})
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="mt-2 inline-flex items-center space-x-1.5 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] text-slate-500 font-medium">
-                  <Building2 className="w-3 h-3 text-slate-400" />
-                  <span>Internal / Practice Task</span>
-                </div>
-              )}
+                ) : (
+                  <div className="inline-flex items-center space-x-1.5 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] text-slate-500 font-medium">
+                    <Building2 className="w-3 h-3 text-slate-400" />
+                    <span>Internal / Practice Task</span>
+                  </div>
+                )}
+
+                {/* Linked Learning Topic Pill */}
+                {task.learningItem && (
+                  <div className="inline-flex items-center space-x-1.5 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg text-xs text-emerald-900 font-semibold shadow-2xs">
+                    <GraduationCap className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+                    <span>[{task.learningItem.subject}] {task.learningItem.title}</span>
+                  </div>
+                )}
+              </div>
 
               {task.description && (
                 <p className="text-xs text-slate-600 mt-3 whitespace-pre-wrap leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
