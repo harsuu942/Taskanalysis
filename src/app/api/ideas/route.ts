@@ -37,6 +37,18 @@ export async function GET(request: Request) {
             },
           },
         },
+        tasks: {
+          select: {
+            id: true,
+            title: true,
+            employeeStatus: true,
+            adminStatus: true,
+            priority: true,
+            dueDate: true,
+            totalDurationSeconds: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: { updatedAt: "desc" },
     });

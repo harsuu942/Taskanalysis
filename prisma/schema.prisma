@@ -70,6 +70,9 @@ model Task {
   learningItemId       String?
   learningItem         LearningItem?  @relation(fields: [learningItemId], references: [id], onDelete: SetNull)
 
+  productIdeaId        String?
+  productIdea          ProductIdea?   @relation(fields: [productIdeaId], references: [id], onDelete: SetNull)
+
   createdById          String
   createdBy            User       @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
 
@@ -265,6 +268,7 @@ model ProductIdea {
 
   phases           ProductExecutionPhase[]
   learningItems    LearningItem[]
+  tasks            Task[]
 }
 
 model ProductExecutionPhase {

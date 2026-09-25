@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Task, User, TimeLog, Client, PriorityType, RecurrenceType, LearningItem } from "@/types";
+import { Task, User, TimeLog, Client, PriorityType, RecurrenceType, LearningItem, ProductIdea } from "@/types";
 import {
   X,
   Play,
@@ -26,6 +26,7 @@ import {
   Plus,
   Users,
   GraduationCap,
+  Lightbulb,
 } from "lucide-react";
 import { formatDuration } from "@/lib/formatters";
 
@@ -36,6 +37,7 @@ interface TaskDetailDrawerProps {
   allUsers: User[];
   clients?: Client[];
   learningItems?: LearningItem[];
+  ideas?: ProductIdea[];
   onTimerAction: (taskId: string, action: "start" | "hold" | "resume" | "stop" | "complete") => Promise<void>;
   onAdminApprove: (taskId: string) => Promise<void>;
   onAdminRevision: (taskId: string) => Promise<void>;
@@ -51,6 +53,7 @@ export default function TaskDetailDrawer({
   allUsers,
   clients = [],
   learningItems = [],
+  ideas = [],
   onTimerAction,
   onAdminApprove,
   onAdminRevision,
@@ -83,6 +86,7 @@ export default function TaskDetailDrawer({
   const [editAssignedToId, setEditAssignedToId] = useState("");
   const [editClientId, setEditClientId] = useState("");
   const [editLearningItemId, setEditLearningItemId] = useState("");
+  const [editProductIdeaId, setEditProductIdeaId] = useState("");
 
   // Sync edit form fields when task changes
   useEffect(() => {
@@ -98,6 +102,7 @@ export default function TaskDetailDrawer({
       setEditAssignedToId(task.assignedToId || "");
       setEditClientId(task.clientId || "");
       setEditLearningItemId(task.learningItemId || "");
+      setEditProductIdeaId(task.productIdeaId || "");
       setIsEditing(false);
       setEditError(null);
     }
@@ -205,6 +210,7 @@ export default function TaskDetailDrawer({
           assignedToId: isEmployee ? (task.assignedToId || currentUser?.id) : (editAssignedToId || null),
           clientId: editClientId || null,
           learningItemId: editLearningItemId || null,
+          productIdeaId: editProductIdeaId || null,
         }),
       });
 
@@ -588,6 +594,26 @@ export default function TaskDetailDrawer({
                 </select>
               </div>
 
+              {/* Product Roadmap / Idea Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-700 mb-1 flex items-center gap-1">
+                  <Lightbulb className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Product Roadmap / Idea</span>
+                </label>
+                <select
+                  value={editProductIdeaId}
+                  onChange={(e) => setEditProductIdeaId(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="">-- No Linked Product Roadmap --</option>
+                  {ideas.map((idea) => (
+                    <option key={idea.id} value={idea.id}>
+                      💡 [{idea.category}] {idea.title} ({idea.status.replace("_", " ")})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
@@ -615,7 +641,7 @@ export default function TaskDetailDrawer({
                 </h2>
               </div>
 
-              {/* Client and Learning Topic Pills */}
+              {/* Client, Learning Topic, and Product Roadmap Pills */}
               <div className="flex flex-wrap gap-2 mt-2">
                 {/* Client Info Pill (Supports Multiple Clients) */}
                 {task.taskClients && task.taskClients.length > 0 ? (
@@ -652,6 +678,14 @@ export default function TaskDetailDrawer({
                   <div className="inline-flex items-center space-x-1.5 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg text-xs text-emerald-900 font-semibold shadow-2xs">
                     <GraduationCap className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
                     <span>[{task.learningItem.subject}] {task.learningItem.title}</span>
+                  </div>
+                )}
+
+                {/* Linked Product Roadmap Pill */}
+                {task.productIdea && (
+                  <div className="inline-flex items-center space-x-1.5 bg-purple-50 border border-purple-300 px-2.5 py-1 rounded-lg text-xs text-purple-900 font-semibold shadow-2xs">
+                    <Lightbulb className="w-3.5 h-3.5 text-purple-700 flex-shrink-0" />
+                    <span>[{task.productIdea.category}] {task.productIdea.title}</span>
                   </div>
                 )}
               </div>

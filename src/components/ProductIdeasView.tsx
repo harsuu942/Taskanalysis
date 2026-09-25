@@ -36,12 +36,14 @@ interface ProductIdeasViewProps {
   ideas: ProductIdea[];
   onRefresh: () => void;
   onDeleteIdea?: (id: string) => Promise<void> | void;
+  onCreateTaskForIdea?: (ideaId: string) => void;
 }
 
 export default function ProductIdeasView({
   ideas,
   onRefresh,
   onDeleteIdea,
+  onCreateTaskForIdea,
 }: ProductIdeasViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -423,6 +425,16 @@ export default function ProductIdeasView({
                   {/* Actions & Target Launch */}
                   <div className="flex sm:flex-col items-end justify-between sm:justify-start gap-2 flex-shrink-0">
                     <div className="flex items-center space-x-1.5">
+                      {onCreateTaskForIdea && (
+                        <button
+                          onClick={() => onCreateTaskForIdea(idea.id)}
+                          className="px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                          title="Add Task to this Roadmap"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Task</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleOpenEditModal(idea)}
                         className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition"
@@ -604,6 +616,54 @@ export default function ProductIdeasView({
                             >
                               {li.status.replace("_", " ")}
                             </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Linked Roadmap Tasks Section */}
+                {idea.tasks && idea.tasks.length > 0 && (
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Target className="w-4 h-4 text-purple-600" />
+                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                          Linked Roadmap Tasks ({idea.tasks.length})
+                        </h4>
+                      </div>
+                      <div className="text-[11px] font-bold text-purple-700">
+                        {idea.tasks.filter((t) => t.employeeStatus === "COMPLETED" || t.adminStatus === "FINAL_COMPLETED").length} / {idea.tasks.length} Completed
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {idea.tasks.map((task) => {
+                        const isTaskDone = task.employeeStatus === "COMPLETED" || task.adminStatus === "FINAL_COMPLETED";
+                        return (
+                          <div
+                            key={task.id}
+                            className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+                              isTaskDone
+                                ? "bg-emerald-50/70 border-emerald-200 text-emerald-950 font-medium"
+                                : task.employeeStatus === "IN_PROGRESS"
+                                ? "bg-blue-50/80 border-blue-200 text-blue-950 font-medium"
+                                : "bg-slate-50 border-slate-200 text-slate-800"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-xs truncate">{task.title}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500">
+                                <span className="font-bold uppercase tracking-wider">{task.priority}</span>
+                                <span>•</span>
+                                <span className="capitalize">{task.employeeStatus.toLowerCase().replace("_", " ")}</span>
+                              </div>
+                            </div>
+                            {isTaskDone ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                            )}
                           </div>
                         );
                       })}

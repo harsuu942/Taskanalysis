@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Task, User, RecurrenceType, PriorityType, Client, LearningItem } from "@/types";
+import { Task, User, RecurrenceType, PriorityType, Client, LearningItem, ProductIdea } from "@/types";
 import {
   X,
   Calendar,
@@ -17,6 +17,7 @@ import {
   Check,
   Search,
   GraduationCap,
+  Lightbulb,
 } from "lucide-react";
 
 interface TaskModalProps {
@@ -28,6 +29,8 @@ interface TaskModalProps {
   initialClientId?: string;
   learningItems?: LearningItem[];
   initialLearningItemId?: string;
+  ideas?: ProductIdea[];
+  initialProductIdeaId?: string;
   taskToEdit?: Task | null;
   onTaskCreated: () => void;
   onRefreshClients?: () => void;
@@ -42,6 +45,8 @@ export default function TaskModal({
   initialClientId = "",
   learningItems = [],
   initialLearningItemId = "",
+  ideas = [],
+  initialProductIdeaId = "",
   taskToEdit = null,
   onTaskCreated,
   onRefreshClients,
@@ -57,6 +62,7 @@ export default function TaskModal({
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [learningItemId, setLearningItemId] = useState<string>("");
+  const [productIdeaId, setProductIdeaId] = useState<string>("");
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [billableHours, setBillableHours] = useState<string>("0");
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().slice(0, 16));
@@ -84,6 +90,7 @@ export default function TaskModal({
       setWeeklyDay(taskToEdit.weeklyDay || "Monday");
       setPriority(taskToEdit.priority || "MEDIUM");
       setLearningItemId(taskToEdit.learningItemId || "");
+      setProductIdeaId(taskToEdit.productIdeaId || "");
 
       // Multi-assignees
       const aIds = taskToEdit.assignees?.map((a) => a.userId) || [];
@@ -120,6 +127,7 @@ export default function TaskModal({
       setSelectedClientIds(initialClientId ? [initialClientId] : []);
       setSelectedAssigneeIds(isEmployee && currentUser ? [currentUser.id] : []);
       setLearningItemId(initialLearningItemId || "");
+      setProductIdeaId(initialProductIdeaId || "");
       setBillableHours("0");
       setTitle("");
       setDescription("");
@@ -131,7 +139,7 @@ export default function TaskModal({
       setDueDate(new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().slice(0, 16));
       setError(null);
     }
-  }, [taskToEdit, initialClientId, initialLearningItemId, isEmployee, currentUser, isOpen]);
+  }, [taskToEdit, initialClientId, initialLearningItemId, initialProductIdeaId, isEmployee, currentUser, isOpen]);
 
   // Listen for Escape key to close
   useEffect(() => {
@@ -229,6 +237,7 @@ export default function TaskModal({
         clientId: selectedClientIds.length > 0 ? selectedClientIds[0] : null,
         clientIds: selectedClientIds,
         learningItemId: learningItemId || null,
+        productIdeaId: productIdeaId || null,
         billableHours: parseFloat(billableHours) || 0,
         startDate: startDate ? new Date(startDate) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -504,6 +513,42 @@ export default function TaskModal({
             {learningItemId && (
               <p className="text-[10px] text-emerald-700 font-medium">
                 💡 Completed practice and logged hours on this task will track against this learning topic.
+              </p>
+            )}
+          </div>
+
+          {/* Product Roadmap Link (Product Idea Milestone Alignment) */}
+          <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-200/80 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
+                <Lightbulb className="w-3.5 h-3.5 text-purple-700" />
+                <span>Link Product Roadmap / Idea (Optional)</span>
+              </label>
+              {productIdeaId && (
+                <button
+                  type="button"
+                  onClick={() => setProductIdeaId("")}
+                  className="text-[10px] text-slate-400 hover:text-rose-600 font-medium cursor-pointer"
+                >
+                  Clear Link
+                </button>
+              )}
+            </div>
+            <select
+              value={productIdeaId}
+              onChange={(e) => setProductIdeaId(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs bg-white border border-purple-300 rounded-lg outline-none font-medium text-slate-800 focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">-- No Linked Product Roadmap --</option>
+              {ideas.map((idea) => (
+                <option key={idea.id} value={idea.id}>
+                  💡 [{idea.category}] {idea.title} ({idea.status.replace("_", " ")})
+                </option>
+              ))}
+            </select>
+            {productIdeaId && (
+              <p className="text-[10px] text-purple-700 font-medium">
+                🚀 Completed work and logged hours on this task will track against this product roadmap's execution plan.
               </p>
             )}
           </div>

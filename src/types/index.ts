@@ -112,6 +112,8 @@ export interface Task {
   project?: Project | null;
   learningItemId?: string | null;
   learningItem?: LearningItem | null;
+  productIdeaId?: string | null;
+  productIdea?: ProductIdea | null;
   createdById: string;
   createdBy?: User | null;
   timeLogs?: TimeLog[];
@@ -320,6 +322,7 @@ export interface ProductIdea {
   updatedAt: string;
   phases?: ProductExecutionPhase[];
   learningItems?: LearningItem[];
+  tasks?: Task[];
 }
 
 export type LearningResourceType = "ARTICLE" | "VIDEO" | "REPO" | "COURSE" | "DOCS" | "BOOK";

@@ -72,6 +72,7 @@ export default function Home() {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [taskModalInitialClientId, setTaskModalInitialClientId] = useState<string>("");
   const [taskModalInitialLearningItemId, setTaskModalInitialLearningItemId] = useState<string>("");
+  const [taskModalInitialProductIdeaId, setTaskModalInitialProductIdeaId] = useState<string>("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const selectedTaskIdRef = useRef<string | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -390,6 +391,7 @@ export default function Home() {
           setTaskToEdit(null);
           setTaskModalInitialClientId("");
           setTaskModalInitialLearningItemId("");
+          setTaskModalInitialProductIdeaId("");
           setIsTaskModalOpen(true);
         }}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
@@ -410,11 +412,13 @@ export default function Home() {
             tasks={tasks}
             currentUser={currentUser}
             clients={clients}
+            ideas={ideas}
             onSelectTask={handleSelectTask}
             onAddNewTask={() => {
               setTaskToEdit(null);
               setTaskModalInitialClientId("");
               setTaskModalInitialLearningItemId("");
+              setTaskModalInitialProductIdeaId("");
               setIsTaskModalOpen(true);
             }}
             onEditTask={(task) => {
@@ -441,6 +445,7 @@ export default function Home() {
               setTaskToEdit(null);
               setTaskModalInitialClientId(clientId);
               setTaskModalInitialLearningItemId("");
+              setTaskModalInitialProductIdeaId("");
               setIsTaskModalOpen(true);
             }}
           />
@@ -466,6 +471,7 @@ export default function Home() {
               setTaskToEdit(null);
               setTaskModalInitialClientId("");
               setTaskModalInitialLearningItemId("");
+              setTaskModalInitialProductIdeaId("");
               setIsTaskModalOpen(true);
             }}
             onEditTemplate={(tpl) => {
@@ -483,6 +489,13 @@ export default function Home() {
             ideas={ideas}
             onRefresh={() => fetchIdeas()}
             onDeleteIdea={handleDeleteIdea}
+            onCreateTaskForIdea={(ideaId) => {
+              setTaskToEdit(null);
+              setTaskModalInitialClientId("");
+              setTaskModalInitialLearningItemId("");
+              setTaskModalInitialProductIdeaId(ideaId);
+              setIsTaskModalOpen(true);
+            }}
           />
         )}
 
@@ -497,6 +510,7 @@ export default function Home() {
               setTaskToEdit(null);
               setTaskModalInitialClientId("");
               setTaskModalInitialLearningItemId(item.id);
+              setTaskModalInitialProductIdeaId("");
               setIsTaskModalOpen(true);
             }}
           />
@@ -512,6 +526,7 @@ export default function Home() {
           setTaskToEdit(null);
           setTaskModalInitialClientId("");
           setTaskModalInitialLearningItemId("");
+          setTaskModalInitialProductIdeaId("");
         }}
         currentUser={currentUser}
         allUsers={[currentUser]}
@@ -519,11 +534,14 @@ export default function Home() {
         initialClientId={taskModalInitialClientId}
         learningItems={learningItems}
         initialLearningItemId={taskModalInitialLearningItemId}
+        ideas={ideas}
+        initialProductIdeaId={taskModalInitialProductIdeaId}
         onTaskCreated={() => {
           setTaskToEdit(null);
           fetchTasks();
           fetchClients();
           fetchLearning();
+          fetchIdeas();
         }}
         onRefreshClients={() => fetchClients()}
       />
@@ -536,6 +554,7 @@ export default function Home() {
         allUsers={[currentUser]}
         clients={clients}
         learningItems={learningItems}
+        ideas={ideas}
         onTimerAction={handleTimerAction}
         onAdminApprove={handleAdminApprove}
         onAdminRevision={() => Promise.resolve()}
@@ -543,6 +562,7 @@ export default function Home() {
           fetchTasks();
           fetchClients();
           fetchLearning();
+          fetchIdeas();
         }}
         onDeleteTask={handleDeleteTask}
         onEditTask={(task) => {

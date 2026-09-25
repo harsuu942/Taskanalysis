@@ -105,6 +105,7 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
         taskClients: true,
         assignees: true,
         learningItem: true,
+        productIdea: true,
       },
     });
 
@@ -317,6 +318,7 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
             assignedToId: tpl.assignedToId,
             clientId: tpl.clientId,
             learningItemId: tpl.learningItemId,
+            productIdeaId: tpl.productIdeaId,
             billableHours: tpl.billableHours,
             createdById: tpl.createdById,
             parentRecurringId: tpl.id,

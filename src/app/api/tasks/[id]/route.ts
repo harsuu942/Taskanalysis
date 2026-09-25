@@ -13,6 +13,7 @@ export async function GET(
         createdBy: true,
         client: true,
         learningItem: true,
+        productIdea: true,
         taskClients: {
           include: { client: true },
         },
@@ -58,6 +59,7 @@ export async function PUT(
       clientId,
       clientIds,
       learningItemId,
+      productIdeaId,
       billableHours,
     } = body;
 
@@ -151,6 +153,7 @@ export async function PUT(
           ...(monthlyDay !== undefined && { monthlyDay: monthlyDay ? parseInt(monthlyDay, 10) : null }),
           ...(weeklyDay !== undefined && { weeklyDay: weeklyDay || null }),
           ...(learningItemId !== undefined && { learningItemId: learningItemId || null }),
+          ...(productIdeaId !== undefined && { productIdeaId: productIdeaId || null }),
           ...(effectiveAssignedToId !== undefined && { assignedToId: effectiveAssignedToId || null }),
           ...(effectiveClientId !== undefined && { clientId: effectiveClientId || null }),
           ...(billableHours !== undefined && { billableHours: billableHours ? parseFloat(billableHours) : 0 }),
@@ -176,6 +179,7 @@ export async function PUT(
             ...(monthlyDay !== undefined && { monthlyDay: monthlyDay ? parseInt(monthlyDay, 10) : null }),
             ...(weeklyDay !== undefined && { weeklyDay: weeklyDay || null }),
             ...(learningItemId !== undefined && { learningItemId: learningItemId || null }),
+            ...(productIdeaId !== undefined && { productIdeaId: productIdeaId || null }),
             ...(effectiveAssignedToId !== undefined && { assignedToId: effectiveAssignedToId || null }),
             ...(effectiveClientId !== undefined && { clientId: effectiveClientId || null }),
             ...(billableHours !== undefined && { billableHours: billableHours ? parseFloat(billableHours) : 0 }),
@@ -201,6 +205,7 @@ export async function PUT(
           assignedToId: effectiveAssignedToId !== undefined ? (effectiveAssignedToId || null) : existingTask.assignedToId,
           clientId: effectiveClientId !== undefined ? (effectiveClientId || null) : existingTask.clientId,
           learningItemId: learningItemId !== undefined ? (learningItemId || null) : existingTask.learningItemId,
+          productIdeaId: productIdeaId !== undefined ? (productIdeaId || null) : existingTask.productIdeaId,
           billableHours: billableHours !== undefined ? (billableHours ? parseFloat(billableHours) : 0) : existingTask.billableHours,
           createdById: existingTask.createdById,
           isRecurringTemplate: true,
@@ -222,6 +227,7 @@ export async function PUT(
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
         ...(learningItemId !== undefined && { learningItemId: learningItemId || null }),
+        ...(productIdeaId !== undefined && { productIdeaId: productIdeaId || null }),
         ...(billableHours !== undefined && { billableHours: billableHours ? parseFloat(billableHours) : 0 }),
         ...(effectiveAssignedToId !== undefined && { assignedToId: effectiveAssignedToId || null }),
         ...(effectiveClientId !== undefined && { clientId: effectiveClientId || null }),
@@ -232,6 +238,7 @@ export async function PUT(
         createdBy: true,
         client: true,
         learningItem: true,
+        productIdea: true,
         taskClients: {
           include: { client: true },
         },

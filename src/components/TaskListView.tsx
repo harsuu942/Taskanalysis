@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Task, User, Client } from "@/types";
+import { Task, User, Client, ProductIdea } from "@/types";
 import KanbanBoard from "./KanbanBoard";
 import {
   Clock,
@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Zap,
   GraduationCap,
+  Lightbulb,
 } from "lucide-react";
 import { formatDuration } from "@/lib/formatters";
 import { TaskDateFilterOption, matchesTaskDateFilter } from "@/lib/productivity";
@@ -37,6 +38,7 @@ interface TaskListViewProps {
   currentUser: User | null;
   allUsers?: User[];
   clients?: Client[];
+  ideas?: ProductIdea[];
   onSelectTask: (task: Task) => void;
   onAddNewTask?: () => void;
   onEditTask?: (task: Task) => void;
@@ -51,6 +53,7 @@ export default function TaskListView({
   tasks,
   currentUser,
   clients = [],
+  ideas = [],
   onSelectTask,
   onAddNewTask,
   onEditTask,
@@ -62,6 +65,7 @@ export default function TaskListView({
   const [viewStyle, setViewStyle] = useState<"kanban" | "list">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterClient, setFilterClient] = useState("ALL");
+  const [filterIdea, setFilterIdea] = useState("ALL");
   const [filterPriority, setFilterPriority] = useState("ALL");
   const [filterRecurrence, setFilterRecurrence] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -79,6 +83,7 @@ export default function TaskListView({
   const isFiltered =
     searchTerm.trim() !== "" ||
     filterClient !== "ALL" ||
+    filterIdea !== "ALL" ||
     filterPriority !== "ALL" ||
     filterRecurrence !== "ALL" ||
     filterStatus !== "ALL" ||
@@ -87,6 +92,7 @@ export default function TaskListView({
   const handleClearFilters = () => {
     setSearchTerm("");
     setFilterClient("ALL");
+    setFilterIdea("ALL");
     setFilterPriority("ALL");
     setFilterRecurrence("ALL");
     setFilterStatus("ALL");
@@ -102,11 +108,18 @@ export default function TaskListView({
       const matchClient =
         t.client?.name?.toLowerCase().includes(q) ||
         t.client?.company?.toLowerCase().includes(q);
-      if (!matchTitle && !matchDesc && !matchClient) return false;
+      const matchIdea =
+        t.productIdea?.title?.toLowerCase().includes(q) ||
+        t.productIdea?.category?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchClient && !matchIdea) return false;
     }
 
     if (filterClient !== "ALL") {
       if (t.clientId !== filterClient) return false;
+    }
+
+    if (filterIdea !== "ALL") {
+      if (t.productIdeaId !== filterIdea) return false;
     }
 
     if (filterPriority !== "ALL" && t.priority !== filterPriority) return false;
@@ -267,6 +280,19 @@ export default function TaskListView({
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.company || c.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterIdea}
+            onChange={(e) => setFilterIdea(e.target.value)}
+            className="text-xs bg-white border border-purple-300 rounded-xl px-3 py-2 text-purple-950 font-bold focus:outline-none focus:ring-1 focus:ring-purple-500"
+          >
+            <option value="ALL">All Roadmaps ({ideas.length})</option>
+            {ideas.map((i) => (
+              <option key={i.id} value={i.id}>
+                💡 [{i.category}] {i.title}
               </option>
             ))}
           </select>
@@ -513,6 +539,14 @@ export default function TaskListView({
                             <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
                               <GraduationCap className="w-3 h-3 text-emerald-600" />
                               <span>[{task.learningItem.subject}] {task.learningItem.title}</span>
+                            </span>
+                          </div>
+                        )}
+                        {task.productIdea && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 font-bold text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 text-[10px]">
+                              <Lightbulb className="w-3 h-3 text-purple-600" />
+                              <span>[{task.productIdea.category}] {task.productIdea.title}</span>
                             </span>
                           </div>
                         )}

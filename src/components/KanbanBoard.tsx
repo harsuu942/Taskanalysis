@@ -21,6 +21,7 @@ import {
   Cpu,
   GripVertical,
   GraduationCap,
+  Lightbulb,
 } from "lucide-react";
 import { formatDuration } from "@/lib/formatters";
 
@@ -279,6 +280,14 @@ export default function KanbanBoard({
                             <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 truncate">
                               <GraduationCap className="w-3 h-3 text-emerald-600 flex-shrink-0" />
                               <span className="truncate">[{task.learningItem.subject}] {task.learningItem.title}</span>
+                            </div>
+                          )}
+
+                          {/* Linked Product Roadmap Badge */}
+                          {task.productIdea && (
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 truncate">
+                              <Lightbulb className="w-3 h-3 text-purple-600 flex-shrink-0" />
+                              <span className="truncate">[{task.productIdea.category}] {task.productIdea.title}</span>
                             </div>
                           )}
 

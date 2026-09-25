@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const assignedToId = searchParams.get("assignedToId");
     const clientId = searchParams.get("clientId");
+    const productIdeaId = searchParams.get("productIdeaId");
     const recurrence = searchParams.get("recurrence");
     const employeeStatus = searchParams.get("employeeStatus");
     const adminStatus = searchParams.get("adminStatus");
@@ -60,6 +61,10 @@ export async function GET(request: Request) {
       });
     }
 
+    if (productIdeaId && productIdeaId !== "ALL") {
+      where.productIdeaId = productIdeaId;
+    }
+
     if (recurrence && recurrence !== "ALL") {
       where.recurrence = recurrence;
     }
@@ -96,6 +101,7 @@ export async function GET(request: Request) {
         createdBy: true,
         client: true,
         learningItem: true,
+        productIdea: true,
         taskClients: {
           include: {
             client: true,
@@ -141,6 +147,7 @@ export async function POST(request: Request) {
       clientId,
       clientIds,
       learningItemId,
+      productIdeaId,
       billableHours = 0,
     } = body;
 
@@ -204,6 +211,7 @@ export async function POST(request: Request) {
           assignedToId: effectiveAssignedToId,
           clientId: effectiveClientId,
           learningItemId: learningItemId || null,
+          productIdeaId: productIdeaId || null,
           billableHours: numericBillableHours,
           createdById,
           isRecurringTemplate: true,
@@ -235,6 +243,7 @@ export async function POST(request: Request) {
         assignedToId: effectiveAssignedToId,
         clientId: effectiveClientId,
         learningItemId: learningItemId || null,
+        productIdeaId: productIdeaId || null,
         billableHours: numericBillableHours,
         createdById,
         isRecurringTemplate: false,
@@ -251,6 +260,7 @@ export async function POST(request: Request) {
         createdBy: true,
         client: true,
         learningItem: true,
+        productIdea: true,
         taskClients: {
           include: {
             client: true,
