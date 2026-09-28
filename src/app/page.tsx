@@ -227,9 +227,13 @@ export default function Home() {
     if (!currentUser) return;
     try {
       // Optimistic update
+      const targetTask = tasks.find((t) => t.id === taskId);
       setTasks((prev) =>
         prev.map((t) => {
-          if (t.id === taskId) {
+          if (
+            t.id === taskId ||
+            (targetTask?.parentRecurringId && t.parentRecurringId === targetTask.parentRecurringId)
+          ) {
             return {
               ...t,
               employeeStatus: newEmployeeStatus as any,

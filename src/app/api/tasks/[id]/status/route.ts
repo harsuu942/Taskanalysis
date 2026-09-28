@@ -195,6 +195,47 @@ export async function POST(
       },
     });
 
+    // If this task belongs to a recurring series and was completed, sync or clean up any sibling duplicates
+    if (
+      task.parentRecurringId &&
+      (updatedTask.employeeStatus === "COMPLETED" || updatedTask.adminStatus === "FINAL_COMPLETED")
+    ) {
+      try {
+        const siblingTasks = await prisma.task.findMany({
+          where: {
+            parentRecurringId: task.parentRecurringId,
+            isRecurringTemplate: false,
+            id: { not: task.id },
+            createdAt: { gte: new Date(now.getTime() - 24 * 3600 * 1000) },
+          },
+          include: {
+            _count: {
+              select: { timeLogs: true },
+            },
+          },
+        });
+
+        for (const sibling of siblingTasks) {
+          if (sibling._count.timeLogs === 0) {
+            // Safe to remove orphan duplicate that has no logged time
+            await prisma.task.delete({ where: { id: sibling.id } }).catch(() => {});
+          } else {
+            // Sibling has time logs, sync its status to COMPLETED so it doesn't linger in TODO
+            await prisma.task.update({
+              where: { id: sibling.id },
+              data: {
+                employeeStatus: "COMPLETED",
+                adminStatus: updatedTask.adminStatus,
+                isTimerRunning: false,
+              },
+            }).catch(() => {});
+          }
+        }
+      } catch (siblingErr) {
+        console.error("Error syncing sibling recurring tasks:", siblingErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       task: updatedTask,

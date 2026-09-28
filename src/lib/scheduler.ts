@@ -120,6 +120,9 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
 
     const templateIds = recurringTemplates.map((t) => t.id);
 
+    // Buffer start by 6 hours to prevent UTC/IST timezone boundary mismatches
+    const queryBufferStart = new Date(startOfDayUtc.getTime() - 6 * 3600 * 1000);
+
     // One single batch query to find all tasks already generated or active for today for these templates
     const existingTasksToday = await prisma.task.findMany({
       where: {
@@ -128,13 +131,19 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
         OR: [
           {
             createdAt: {
-              gte: startOfDayUtc,
+              gte: queryBufferStart,
               lte: endOfDayUtc,
             },
           },
           {
             startDate: {
-              gte: startOfDayUtc,
+              gte: queryBufferStart,
+              lte: endOfDayUtc,
+            },
+          },
+          {
+            dueDate: {
+              gte: queryBufferStart,
               lte: endOfDayUtc,
             },
           },
@@ -159,14 +168,22 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
       let shouldGenerateToday = false;
       const lastGen = tpl.lastGeneratedDate ? new Date(tpl.lastGeneratedDate) : null;
       const lastGenLocal = lastGen ? getLocalParts(lastGen, timeZone) : null;
-      const lastGenToday =
-        lastGenLocal &&
-        lastGenLocal.year === localNow.year &&
-        lastGenLocal.month === localNow.month &&
-        lastGenLocal.day === localNow.day;
 
-      if (lastGenToday) {
-        continue;
+      if (lastGen && lastGenLocal) {
+        const hoursSinceLastGen = (now.getTime() - lastGen.getTime()) / (1000 * 3600);
+        // For DAILY and WEEKEND recurring tasks, enforce minimum 18-hour cooldown between generation cycles
+        if ((tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") && hoursSinceLastGen < 18) {
+          continue;
+        }
+
+        const lastGenToday =
+          lastGenLocal.year === localNow.year &&
+          lastGenLocal.month === localNow.month &&
+          lastGenLocal.day === localNow.day;
+
+        if (lastGenToday) {
+          continue;
+        }
       }
 
       if (tpl.recurrence === "DAILY") {
@@ -236,118 +253,132 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
       }
     }
 
-    // Process templates to generate in parallel
-    const generatedTasks = await Promise.all(
-      templatesToGenerate.map(async (tpl) => {
-        // Compute startDate and dueDate respecting template times and target day
-        const tplStartLocal = tpl.startDate
-          ? getLocalParts(new Date(tpl.startDate), timeZone)
-          : { hour: 7, minute: 0 };
-        const tplDueLocal = tpl.dueDate
-          ? getLocalParts(new Date(tpl.dueDate), timeZone)
-          : { hour: 23, minute: 59 };
+    // Process templates sequentially with double-check guard
+    const generatedTasks: any[] = [];
+    for (const tpl of templatesToGenerate) {
+      // Guard against race conditions: check if a child was already created within last 20 hours
+      if (tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") {
+        const existingChild = await prisma.task.findFirst({
+          where: {
+            parentRecurringId: tpl.id,
+            isRecurringTemplate: false,
+            createdAt: { gte: new Date(now.getTime() - 20 * 3600 * 1000) },
+          },
+        });
+        if (existingChild) {
+          generatedTasks.push(existingChild);
+          continue;
+        }
+      }
 
-        const startDate = localToUtcDate(
+      // Compute startDate and dueDate respecting template times and target day
+      const tplStartLocal = tpl.startDate
+        ? getLocalParts(new Date(tpl.startDate), timeZone)
+        : { hour: 7, minute: 0 };
+      const tplDueLocal = tpl.dueDate
+        ? getLocalParts(new Date(tpl.dueDate), timeZone)
+        : { hour: 23, minute: 59 };
+
+      const startDate = localToUtcDate(
+        localNow.year,
+        localNow.month,
+        localNow.day,
+        tplStartLocal.hour,
+        tplStartLocal.minute,
+        0,
+        timeZone
+      );
+
+      let dueDate: Date;
+      if (tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") {
+        dueDate = localToUtcDate(
           localNow.year,
           localNow.month,
           localNow.day,
-          tplStartLocal.hour,
-          tplStartLocal.minute,
-          0,
+          tplDueLocal.hour,
+          tplDueLocal.minute,
+          59,
           timeZone
         );
-
-        let dueDate: Date;
-        if (tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") {
-          dueDate = localToUtcDate(
-            localNow.year,
-            localNow.month,
-            localNow.day,
-            tplDueLocal.hour,
-            tplDueLocal.minute,
-            59,
-            timeZone
-          );
-        } else if (tpl.recurrence === "WEEKLY") {
-          const dueDayLocal = new Date(localNow.year, localNow.month - 1, localNow.day + 6);
-          dueDate = localToUtcDate(
-            dueDayLocal.getFullYear(),
-            dueDayLocal.getMonth() + 1,
-            dueDayLocal.getDate(),
-            tplDueLocal.hour,
-            tplDueLocal.minute,
-            59,
-            timeZone
-          );
-        } else if (tpl.recurrence === "MONTHLY") {
-          const dueDayLocal = new Date(localNow.year, localNow.month - 1, localNow.day + 14);
-          dueDate = localToUtcDate(
-            dueDayLocal.getFullYear(),
-            dueDayLocal.getMonth() + 1,
-            dueDayLocal.getDate(),
-            tplDueLocal.hour,
-            tplDueLocal.minute,
-            59,
-            timeZone
-          );
-        } else {
-          const dueDayLocal = new Date(localNow.year, localNow.month - 1, localNow.day + 30);
-          dueDate = localToUtcDate(
-            dueDayLocal.getFullYear(),
-            dueDayLocal.getMonth() + 1,
-            dueDayLocal.getDate(),
-            tplDueLocal.hour,
-            tplDueLocal.minute,
-            59,
-            timeZone
-          );
-        }
-
-        const newTask = await prisma.task.create({
-          data: {
-            title: tpl.title,
-            description: tpl.description,
-            recurrence: tpl.recurrence,
-            monthlyDay: tpl.monthlyDay,
-            weeklyDay: tpl.weeklyDay,
-            priority: tpl.priority,
-            startDate: startDate,
-            dueDate: dueDate,
-            employeeStatus: "TODO",
-            adminStatus: "NOT_SUBMITTED",
-            assignedToId: tpl.assignedToId,
-            clientId: tpl.clientId,
-            learningItemId: tpl.learningItemId,
-            productIdeaId: tpl.productIdeaId,
-            billableHours: tpl.billableHours,
-            createdById: tpl.createdById,
-            parentRecurringId: tpl.id,
-            isRecurringTemplate: false,
-            taskClients: tpl.taskClients?.length
-              ? {
-                  create: tpl.taskClients.map((tc: any) => ({ clientId: tc.clientId })),
-                }
-              : undefined,
-            assignees: tpl.assignees?.length
-              ? {
-                  create: tpl.assignees.map((ta: any) => ({ userId: ta.userId })),
-                }
-              : undefined,
-          },
-        });
-
-        // Update template lastGeneratedDate
-        await prisma.task.update({
-          where: { id: tpl.id },
-          data: { lastGeneratedDate: now },
-        });
-
-        console.log(
-          `[Scheduler] Spawned task "${newTask.title}" for ${todayStr} (Assignee: ${tpl.assignedTo?.name || "Unassigned"})`
+      } else if (tpl.recurrence === "WEEKLY") {
+        const dueDayLocal = new Date(localNow.year, localNow.month - 1, localNow.day + 6);
+        dueDate = localToUtcDate(
+          dueDayLocal.getFullYear(),
+          dueDayLocal.getMonth() + 1,
+          dueDayLocal.getDate(),
+          tplDueLocal.hour,
+          tplDueLocal.minute,
+          59,
+          timeZone
         );
-        return newTask;
-      })
-    );
+      } else if (tpl.recurrence === "MONTHLY") {
+        const dueDayLocal = new Date(localNow.year, localNow.month - 1, localNow.day + 14);
+        dueDate = localToUtcDate(
+          dueDayLocal.getFullYear(),
+          dueDayLocal.getMonth() + 1,
+          dueDayLocal.getDate(),
+          tplDueLocal.hour,
+          tplDueLocal.minute,
+          59,
+          timeZone
+        );
+      } else {
+        const dueDayLocal = new Date(localNow.year, localNow.month - 1, localNow.day + 30);
+        dueDate = localToUtcDate(
+          dueDayLocal.getFullYear(),
+          dueDayLocal.getMonth() + 1,
+          dueDayLocal.getDate(),
+          tplDueLocal.hour,
+          tplDueLocal.minute,
+          59,
+          timeZone
+        );
+      }
+
+      const newTask = await prisma.task.create({
+        data: {
+          title: tpl.title,
+          description: tpl.description,
+          recurrence: tpl.recurrence,
+          monthlyDay: tpl.monthlyDay,
+          weeklyDay: tpl.weeklyDay,
+          priority: tpl.priority,
+          startDate: startDate,
+          dueDate: dueDate,
+          employeeStatus: "TODO",
+          adminStatus: "NOT_SUBMITTED",
+          assignedToId: tpl.assignedToId,
+          clientId: tpl.clientId,
+          learningItemId: tpl.learningItemId,
+          productIdeaId: tpl.productIdeaId,
+          billableHours: tpl.billableHours,
+          createdById: tpl.createdById,
+          parentRecurringId: tpl.id,
+          isRecurringTemplate: false,
+          taskClients: tpl.taskClients?.length
+            ? {
+                create: tpl.taskClients.map((tc: any) => ({ clientId: tc.clientId })),
+              }
+            : undefined,
+          assignees: tpl.assignees?.length
+            ? {
+                create: tpl.assignees.map((ta: any) => ({ userId: ta.userId })),
+              }
+            : undefined,
+        },
+      });
+
+      // Update template lastGeneratedDate
+      await prisma.task.update({
+        where: { id: tpl.id },
+        data: { lastGeneratedDate: now },
+      });
+
+      console.log(
+        `[Scheduler] Spawned task "${newTask.title}" for ${todayStr} (Assignee: ${tpl.assignedTo?.name || "Unassigned"})`
+      );
+      generatedTasks.push(newTask);
+    }
 
     lastProcessedTime = Date.now();
     return {

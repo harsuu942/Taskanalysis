@@ -137,51 +137,98 @@ export default function TaskListView({
     return true;
   });
 
-  // Productivity metrics for the current filtered view / date selection
-  const totalFiltered = filteredTasks.length;
-  const completedFiltered = filteredTasks.filter(
-    (t) => t.employeeStatus === "COMPLETED" || t.adminStatus === "FINAL_COMPLETED"
-  ).length;
-  const inProgressFiltered = filteredTasks.filter(
-    (t) => t.employeeStatus === "IN_PROGRESS"
-  ).length;
-  const onHoldFiltered = filteredTasks.filter((t) => t.employeeStatus === "ON_HOLD").length;
-  const todoFiltered = filteredTasks.filter((t) => t.employeeStatus === "TODO").length;
-  const completionRate = totalFiltered > 0 ? Math.round((completedFiltered / totalFiltered) * 100) : 0;
-  const totalDurationSeconds = filteredTasks.reduce(
-    (acc, t) => acc + (t.totalDurationSeconds || 0),
-    0
-  );
+  const getTaskStatusRank = (t: Task): number => {
+    if (t.employeeStatus === "COMPLETED" || t.adminStatus === "FINAL_COMPLETED") return 4;
+    if (t.employeeStatus === "IN_PROGRESS") return 3;
+    if (t.employeeStatus === "ON_HOLD") return 2;
+    return 1;
+  };
 
-  // For Kanban Board: When viewing multi-day ranges (e.g. ALL or THIS_WEEK), deduplicate daily recurring tasks by parentRecurringId so only the latest instance appears in sprint columns
-  const kanbanTasks = React.useMemo(() => {
-    if (filterDate === "TODAY" || filterDate === "YESTERDAY") {
-      return filteredTasks;
-    }
+  // Deduplicate tasks for table view and metrics:
+  // For each recurring template (parentRecurringId), keep at most one instance per calendar date,
+  // prioritizing higher status completion (COMPLETED > IN_PROGRESS > ON_HOLD > TODO), then latest updated/created time.
+  const displayTasks = React.useMemo(() => {
+    const recurringMap = new Map<string, Task>();
+    const nonRecurring: Task[] = [];
 
-    const recurringSeen = new Map<string, Task>();
-    const result: Task[] = [];
-
-    // Sort by dueDate descending, then createdAt descending so today/latest instance comes first
+    // Sort by status rank descending first, then updated/created time descending
     const sorted = [...filteredTasks].sort((a, b) => {
-      const timeA = new Date(a.dueDate || a.createdAt).getTime();
-      const timeB = new Date(b.dueDate || b.createdAt).getTime();
+      const rankDiff = getTaskStatusRank(b) - getTaskStatusRank(a);
+      if (rankDiff !== 0) return rankDiff;
+      const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt).getTime();
       return timeB - timeA;
     });
 
     for (const t of sorted) {
-      if (t.parentRecurringId && (t.recurrence === "DAILY" || t.recurrence === "WEEKEND")) {
-        if (!recurringSeen.has(t.parentRecurringId)) {
-          recurringSeen.set(t.parentRecurringId, t);
-          result.push(t);
+      if (t.parentRecurringId) {
+        // Group key: for single-day views (TODAY, YESTERDAY, CUSTOM), group by parentRecurringId.
+        // For multi-day views (THIS_WEEK, THIS_MONTH, ALL), group by parentRecurringId + dateKey.
+        const isSingleDay =
+          filterDate === "TODAY" ||
+          filterDate === "YESTERDAY" ||
+          (filterDate === "CUSTOM" && Boolean(customDate));
+        const dateKey = t.dueDate
+          ? t.dueDate.slice(0, 10)
+          : t.startDate
+          ? t.startDate.slice(0, 10)
+          : t.createdAt.slice(0, 10);
+        const groupKey = isSingleDay ? t.parentRecurringId : `${t.parentRecurringId}_${dateKey}`;
+
+        if (!recurringMap.has(groupKey)) {
+          recurringMap.set(groupKey, t);
         }
       } else {
-        result.push(t);
+        nonRecurring.push(t);
       }
     }
 
-    return result;
-  }, [filteredTasks, filterDate]);
+    return [...Array.from(recurringMap.values()), ...nonRecurring];
+  }, [filteredTasks, filterDate, customDate]);
+
+  // Productivity metrics for the current filtered view / date selection
+  const totalFiltered = displayTasks.length;
+  const completedFiltered = displayTasks.filter(
+    (t) => t.employeeStatus === "COMPLETED" || t.adminStatus === "FINAL_COMPLETED"
+  ).length;
+  const inProgressFiltered = displayTasks.filter(
+    (t) => t.employeeStatus === "IN_PROGRESS"
+  ).length;
+  const onHoldFiltered = displayTasks.filter((t) => t.employeeStatus === "ON_HOLD").length;
+  const todoFiltered = displayTasks.filter((t) => t.employeeStatus === "TODO").length;
+  const completionRate = totalFiltered > 0 ? Math.round((completedFiltered / totalFiltered) * 100) : 0;
+  const totalDurationSeconds = displayTasks.reduce(
+    (acc, t) => acc + (t.totalDurationSeconds || 0),
+    0
+  );
+
+  // For Kanban Board:
+  // Deduplicate recurring tasks by parentRecurringId across ALL date filters,
+  // prioritizing higher status completion (COMPLETED > IN_PROGRESS > ON_HOLD > TODO), then latest date.
+  const kanbanTasks = React.useMemo(() => {
+    const recurringMap = new Map<string, Task>();
+    const nonRecurring: Task[] = [];
+
+    const sorted = [...filteredTasks].sort((a, b) => {
+      const rankDiff = getTaskStatusRank(b) - getTaskStatusRank(a);
+      if (rankDiff !== 0) return rankDiff;
+      const timeA = new Date(b.dueDate || b.createdAt).getTime();
+      const timeB = new Date(a.dueDate || a.createdAt).getTime();
+      return timeA - timeB;
+    });
+
+    for (const t of sorted) {
+      if (t.parentRecurringId) {
+        if (!recurringMap.has(t.parentRecurringId)) {
+          recurringMap.set(t.parentRecurringId, t);
+        }
+      } else {
+        nonRecurring.push(t);
+      }
+    }
+
+    return [...Array.from(recurringMap.values()), ...nonRecurring];
+  }, [filteredTasks]);
 
   const getRowStyle = (task: Task) => {
     if (task.adminStatus === "FINAL_COMPLETED" || task.employeeStatus === "COMPLETED") {
@@ -508,14 +555,14 @@ export default function TaskListView({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredTasks.length === 0 ? (
+              {displayTasks.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
                     No tasks match the filter criteria.
                   </td>
                 </tr>
               ) : (
-                filteredTasks.map((task) => {
+                displayTasks.map((task) => {
                   const overdue = isTaskOverdue(task);
                   const isTimerRunning = task.isTimerRunning;
 
