@@ -120,10 +120,7 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
 
     const templateIds = recurringTemplates.map((t) => t.id);
 
-    // Buffer start by 6 hours to prevent UTC/IST timezone boundary mismatches
-    const queryBufferStart = new Date(startOfDayUtc.getTime() - 6 * 3600 * 1000);
-
-    // One single batch query to find all tasks already generated or active for today for these templates
+    // Query to find all tasks already generated or active for today for these templates
     const existingTasksToday = await prisma.task.findMany({
       where: {
         isRecurringTemplate: false,
@@ -131,19 +128,13 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
         OR: [
           {
             createdAt: {
-              gte: queryBufferStart,
+              gte: startOfDayUtc,
               lte: endOfDayUtc,
             },
           },
           {
             startDate: {
-              gte: queryBufferStart,
-              lte: endOfDayUtc,
-            },
-          },
-          {
-            dueDate: {
-              gte: queryBufferStart,
+              gte: startOfDayUtc,
               lte: endOfDayUtc,
             },
           },
@@ -168,23 +159,6 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
       let shouldGenerateToday = false;
       const lastGen = tpl.lastGeneratedDate ? new Date(tpl.lastGeneratedDate) : null;
       const lastGenLocal = lastGen ? getLocalParts(lastGen, timeZone) : null;
-
-      if (lastGen && lastGenLocal) {
-        const hoursSinceLastGen = (now.getTime() - lastGen.getTime()) / (1000 * 3600);
-        // For DAILY and WEEKEND recurring tasks, enforce minimum 18-hour cooldown between generation cycles
-        if ((tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") && hoursSinceLastGen < 18) {
-          continue;
-        }
-
-        const lastGenToday =
-          lastGenLocal.year === localNow.year &&
-          lastGenLocal.month === localNow.month &&
-          lastGenLocal.day === localNow.day;
-
-        if (lastGenToday) {
-          continue;
-        }
-      }
 
       if (tpl.recurrence === "DAILY") {
         shouldGenerateToday = true;
@@ -256,13 +230,16 @@ export async function processRecurringTasks(options?: { timezone?: string }) {
     // Process templates sequentially with double-check guard
     const generatedTasks: any[] = [];
     for (const tpl of templatesToGenerate) {
-      // Guard against race conditions: check if a child was already created within last 20 hours
+      // Guard against race conditions: check if a child was already created for today
       if (tpl.recurrence === "DAILY" || tpl.recurrence === "WEEKEND") {
         const existingChild = await prisma.task.findFirst({
           where: {
             parentRecurringId: tpl.id,
             isRecurringTemplate: false,
-            createdAt: { gte: new Date(now.getTime() - 20 * 3600 * 1000) },
+            OR: [
+              { createdAt: { gte: startOfDayUtc, lte: endOfDayUtc } },
+              { startDate: { gte: startOfDayUtc, lte: endOfDayUtc } },
+            ],
           },
         });
         if (existingChild) {

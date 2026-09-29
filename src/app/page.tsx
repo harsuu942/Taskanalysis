@@ -212,9 +212,22 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, userId: currentUser.id }),
       });
-      if (res.ok) await fetchTasks();
+      if (res.ok) {
+        const data = await res.json();
+        if (data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? { ...t, ...data.task } : t))
+          );
+          if (selectedTaskIdRef.current === taskId) {
+            setSelectedTask((prev) => (prev ? { ...prev, ...data.task } : null));
+          }
+        } else {
+          await fetchTasks();
+        }
+      }
     } catch (e) {
       console.error(e);
+      await fetchTasks();
     }
   };
 
@@ -225,26 +238,27 @@ export default function Home() {
     newAdminStatus?: string
   ) => {
     if (!currentUser) return;
-    try {
-      // Optimistic update
-      const targetTask = tasks.find((t) => t.id === taskId);
-      setTasks((prev) =>
-        prev.map((t) => {
-          if (
-            t.id === taskId ||
-            (targetTask?.parentRecurringId && t.parentRecurringId === targetTask.parentRecurringId)
-          ) {
-            return {
-              ...t,
-              employeeStatus: newEmployeeStatus as any,
-              adminStatus: (newAdminStatus || t.adminStatus) as any,
-              isTimerRunning: newEmployeeStatus === "IN_PROGRESS" ? true : false,
-            };
-          }
-          return t;
-        })
-      );
+    // 1. Instant optimistic update
+    const targetTask = tasks.find((t) => t.id === taskId);
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (
+          t.id === taskId ||
+          (targetTask?.parentRecurringId && t.parentRecurringId === targetTask.parentRecurringId)
+        ) {
+          return {
+            ...t,
+            employeeStatus: newEmployeeStatus as any,
+            adminStatus: (newAdminStatus || t.adminStatus) as any,
+            isTimerRunning: newEmployeeStatus === "IN_PROGRESS" ? true : false,
+          };
+        }
+        return t;
+      })
+    );
 
+    // 2. Synchronize with backend in background
+    try {
       const res = await fetch(`/api/tasks/${taskId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,10 +269,16 @@ export default function Home() {
           adminStatus: newAdminStatus,
         }),
       });
-      if (!res.ok) {
-        console.error("handleTaskStatusChange failed:", await res.text());
+      if (res.ok) {
+        const data = await res.json();
+        if (data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? { ...t, ...data.task } : t))
+          );
+        }
+      } else {
+        await fetchTasks();
       }
-      await fetchTasks();
     } catch (e) {
       console.error("handleTaskStatusChange error:", e);
       await fetchTasks();
@@ -268,6 +288,13 @@ export default function Home() {
   // Admin Approve handler
   const handleAdminApprove = async (taskId: string) => {
     if (!currentUser) return;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? { ...t, adminStatus: "FINAL_COMPLETED", employeeStatus: "COMPLETED" }
+          : t
+      )
+    );
     try {
       const res = await fetch(`/api/tasks/${taskId}/status`, {
         method: "POST",
@@ -278,27 +305,50 @@ export default function Home() {
           adminStatus: "FINAL_COMPLETED",
         }),
       });
-      if (res.ok) await fetchTasks();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Delete Task
-  const handleDeleteTask = async (taskId: string) => {
-    if (!currentUser) return;
-    if (!confirm("Are you sure you want to delete this task?")) return;
-    try {
-      const res = await fetch(`/api/tasks/${taskId}?userId=${currentUser.id}&role=${currentUser.role}`, {
-        method: "DELETE",
-      });
       if (res.ok) {
-        setSelectedTask(null);
-        selectedTaskIdRef.current = null;
+        const data = await res.json();
+        if (data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? { ...t, ...data.task } : t))
+          );
+        }
+      } else {
         await fetchTasks();
       }
     } catch (e) {
       console.error(e);
+      await fetchTasks();
+    }
+  };
+
+  // Delete Task (Instant Optimistic UI Deletion <16ms)
+  const handleDeleteTask = async (taskId: string) => {
+    if (!currentUser) return;
+    if (!confirm("Are you sure you want to delete this task?")) return;
+
+    // 1. Instant optimistic removal from UI
+    setSelectedTask(null);
+    selectedTaskIdRef.current = null;
+    const taskToDelete = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+
+    // 2. Perform background delete
+    try {
+      const res = await fetch(
+        `/api/tasks/${taskId}?userId=${currentUser.id}&role=${currentUser.role}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        if (taskToDelete) {
+          setTasks((prev) => [...prev, taskToDelete]);
+        }
+        console.error("Delete task failed:", await res.text());
+      }
+    } catch (e) {
+      console.error("Delete task error:", e);
+      if (taskToDelete) {
+        setTasks((prev) => [...prev, taskToDelete]);
+      }
     }
   };
 
@@ -543,9 +593,6 @@ export default function Home() {
         onTaskCreated={() => {
           setTaskToEdit(null);
           fetchTasks();
-          fetchClients();
-          fetchLearning();
-          fetchIdeas();
         }}
         onRefreshClients={() => fetchClients()}
       />
@@ -564,9 +611,6 @@ export default function Home() {
         onAdminRevision={() => Promise.resolve()}
         onTaskUpdated={() => {
           fetchTasks();
-          fetchClients();
-          fetchLearning();
-          fetchIdeas();
         }}
         onDeleteTask={handleDeleteTask}
         onEditTask={(task) => {

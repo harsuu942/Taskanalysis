@@ -4,13 +4,19 @@ import { processRecurringTasks, getLastSchedulerRunTime } from "@/lib/scheduler"
 
 export async function GET(request: Request) {
   try {
-    // Auto-process any pending recurring tasks for today (throttled to avoid redundant runs on rapid queries)
-    if (Date.now() - getLastSchedulerRunTime() > 30000) {
-      try {
-        const clientTz = request.headers.get("x-timezone") || "Asia/Kolkata";
-        await processRecurringTasks({ timezone: clientTz });
-      } catch (schedErr) {
-        console.error("[Tasks API] Scheduler auto-run warning:", schedErr);
+    // Auto-process any pending recurring tasks for today (throttled to 5 minutes to keep queries instant)
+    if (Date.now() - getLastSchedulerRunTime() > 5 * 60 * 1000) {
+      const clientTz = request.headers.get("x-timezone") || "Asia/Kolkata";
+      if (getLastSchedulerRunTime() === 0) {
+        // Cold-start sync
+        await processRecurringTasks({ timezone: clientTz }).catch((schedErr) => {
+          console.error("[Tasks API] Scheduler auto-run warning:", schedErr);
+        });
+      } else {
+        // Non-blocking background processing
+        processRecurringTasks({ timezone: clientTz }).catch((schedErr) => {
+          console.error("[Tasks API] Scheduler auto-run warning:", schedErr);
+        });
       }
     }
 
